@@ -21,8 +21,14 @@ jobs:
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Update Compact toolchain
-        run: compact update
+      # Pinned to the exact toolchain version the contract's
+      # `pragma language_version` targets, rather than "latest" - the
+      # Compact compiler's language version doesn't track its own release
+      # version 1:1 (0.34.0 expects language_version 0.26.0, not 0.34.0),
+      # so blindly updating breaks compilation until the contract's pragma
+      # is bumped to match. Update this alongside contract/src/*.compact.
+      - name: Install Compact toolchain (pinned)
+        run: compact update 0.31.1
 
       # Known npm/arborist bug on a fresh install (no lockfile-free CI cache
       # hit) around vitest's optional peer deps - see README "Setup".
