@@ -1,0 +1,23 @@
+{
+  "name": "sealed-bid-auction",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "contract",
+    "frontend",
+    "cli"
+  ],
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "@swc/core": "1.15.47",
+    "@midnight-ntwrk/ledger-v8": "8.1.0"
+  }
+}
