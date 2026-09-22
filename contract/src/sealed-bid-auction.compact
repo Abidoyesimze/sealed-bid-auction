@@ -1,0 +1,313 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// This auction supports at most MAX_BIDDERS bidders. Compact circuits are
+// statically sized - there is no dynamic-length loop over ledger state - so
+// resolveAuction() below is built as a fixed-width reduction over exactly
+// this many bid slots (unused slots are padded). Raising this cap means
+// widening every Vector<8, ...> below to match and recompiling; it is not a
+// runtime parameter.
+// MAX_BIDDERS = 8
+
+// ---------------------------------------------------------------------------
+// Public ledger state: visible to anyone reading the chain.
+// ---------------------------------------------------------------------------
+export ledger itemDescription: Opaque<"string">;
+export ledger reservePrice: Uint<128>;
+
+// Every bidder locks this same fixed, public amount as escrow when they bid
+// (placeBid), regardless of their actual sealed bid - only that their bid
+// does not exceed it (checked privately, never disclosed). Because every
+// bidder posts the identical amount, the deposit itself reveals nothing
+// about any individual bid beyond the upper bound the auctioneer chose for
+// everyone.
+export ledger requiredDeposit: Uint<128>;
+
+// Nullifier of whoever listed the item, committed at deploy time. Proves
+// "only the auctioneer can close/resolve/withdraw" without ever revealing
+// who the auctioneer is - same nullifier technique used for bidder identity
+// below, just in its own hash domain.
+export ledger auctioneerNullifier: Bytes<32>;
+
+// One sealed commitment per bidder, keyed by that bidder's nullifier so a
+// single identity can't place more than one bid. The commitment hides the
+// bid amount completely - it is a hash of (bidValue, blindingFactor), and
+// neither operand is ever written to the ledger. Only the bidder's own
+// wallet ever knows both values together.
+export ledger bidCommitments: Map<Bytes<32>, Bytes<32>>;
+export ledger bidderCount: Counter;
+
+export ledger open: Boolean;
+export ledger resolved: Boolean;
+
+// Populated only once the auction is resolved. Every losing bid's amount
+// never touches ledger state, or any transaction's disclosed output, at any
+// point - only these two final values do. See resolveAuction() below for
+// how that's enforced: the whole comparison happens inside one circuit call,
+// so there is never an intermediate "current highest bid" for the ledger (or
+// chain history) to expose. If no bid met the reserve, winnerNullifier stays
+// the all-zero sentinel and winningPrice stays 0 - no real bidder's
+// nullifier can ever equal that, so everyone is treated as a non-winner and
+// can reclaim their deposit (see reclaimDeposit).
+export ledger winnerNullifier: Bytes<32>;
+export ledger winningPrice: Uint<128>;
+
+// Settlement bookkeeping, so a deposit or the proceeds can only be pulled
+// out of escrow once each.
+export ledger reclaimed: Set<Bytes<32>>;
+export ledger winnerClaimed: Boolean;
+export ledger proceedsWithdrawn: Boolean;
+
+constructor(itemDescription_: Opaque<"string">, reservePrice_: Uint<128>, requiredDeposit_: Uint<128>) {
+  itemDescription = disclose(itemDescription_);
+  reservePrice = disclose(reservePrice_);
+  requiredDeposit = disclose(requiredDeposit_);
+  auctioneerNullifier = disclose(auctioneerNullifierFor(mySecretId()));
+  open = true;
+  resolved = false;
+  winnerNullifier = default<Bytes<32>>;
+  winningPrice = 0;
+  winnerClaimed = false;
+  proceedsWithdrawn = false;
+  // A sentinel commitment for the all-zero "padding" bidder ID that unused
+  // resolution slots use (see resolveAuction/candidateFor). ZK circuits
+  // evaluate both arms of a value-producing if/else, so candidateFor's
+  // "inactive" arm still gets evaluated (and its assert enforced) even when
+  // discarded - this keeps that lookup and assert satisfiable instead of
+  // hitting a missing-key runtime error.
+  bidCommitments.insert(default<Bytes<32>>, bidCommitmentFor(0, default<Bytes<32>>));
+}
+
+// ---------------------------------------------------------------------------
+// Private witnesses: resolved locally by the caller's wallet and never leave
+// the prover unless explicitly passed to disclose().
+// ---------------------------------------------------------------------------
+
+// A persistent private identity for this participant (bidder or
+// auctioneer). Never written to the ledger directly - only role-scoped
+// hashes of it (nullifiers) ever become public.
+witness mySecretId(): Bytes<32>;
+// This bid's amount. Known only to the bidder who calls placeBid(); leaves
+// the prover only inside the sealed commitment, never in the clear.
+witness myBidValue(): Uint<128>;
+// A random per-bid blinding factor, so two bidders committing the same
+// amount never produce the same commitment (which would otherwise leak
+// that fact).
+witness myBidBlinding(): Bytes<32>;
+
+// The auctioneer's view of every bid being resolved, gathered off-chain
+// after close (each bidder reveals their own (value, blinding) to the
+// auctioneer once bidding ends - that hand-off is outside this contract;
+// see README "Open design questions"). Slots beyond the real bidder count
+// are padding: resolutionActive is false, and the corresponding id/value/
+// blinding are ignored. This is the one place in the protocol where a
+// single party's local process sees bid values in the clear - see
+// resolveAuction() for exactly what that does, and doesn't, expose on-chain.
+witness resolutionActive(): Vector<8, Boolean>;
+witness resolutionBidderIds(): Vector<8, Bytes<32>>;
+witness resolutionBidValues(): Vector<8, Uint<128>>;
+witness resolutionBidBlindings(): Vector<8, Bytes<32>>;
+
+// A candidate winner: a bid amount paired with the bidder nullifier it
+// belongs to. Used only inside resolveAuction()'s private computation -
+// never disclosed except as the single final result.
+struct BidCandidate {
+  value: Uint<128>;
+  id: Bytes<32>;
+}
+
+// Seals a bid and locks the fixed escrow deposit for it. Nothing about the
+// bid amount is disclosed here - only the fact that *a* commitment now
+// exists for this identity, and that the (public, fixed-size) deposit moved
+// from the caller to the contract.
+export circuit placeBid(): [] {
+  assert(open, "Auction is not open");
+  assert(myBidValue() > 0, "Bid must be greater than zero");
+  assert(myBidValue() <= requiredDeposit, "Bid cannot exceed the required deposit");
+  assert(bidderCount < 8, "Auction already has the maximum number of bidders");
+  const nullifier = disclose(bidderNullifierFor(mySecretId()));
+  assert(!bidCommitments.member(nullifier), "This identity has already bid");
+  const commitment = disclose(bidCommitmentFor(myBidValue(), myBidBlinding()));
+  bidCommitments.insert(nullifier, commitment);
+  bidderCount.increment(1);
+  receiveUnshielded(nativeToken(), requiredDeposit);
+}
+
+// Stops further bidding. Only the auctioneer can call this, proven the same
+// way bidder identity is proven above: by producing a nullifier that
+// matches the one committed at deploy time, without ever revealing the
+// underlying secret identity.
+export circuit closeAuction(): [] {
+  assert(open, "Auction is already closed");
+  const nullifier = disclose(auctioneerNullifierFor(mySecretId()));
+  assert(nullifier == auctioneerNullifier, "Only the auctioneer can close the auction");
+  open = false;
+}
+
+// Verifies one resolution slot against the real commitment stored for that
+// bidder (proving the auctioneer isn't inventing or substituting a bid),
+// and returns it as a candidate. An inactive (padding) slot is verified
+// against nothing and always returns the lowest-possible candidate, so it
+// can never win the reduction in resolveAuction().
+//
+// Whether a slot is active is disclosed (it's already implied by the public
+// bidderCount - this doesn't add information), but the bid value and
+// blinding are not: they only ever flow into the commitment check and the
+// returned candidate, both of which stay undisclosed until resolveAuction()
+// discloses just the final winner.
+circuit candidateFor(active: Boolean, id: Bytes<32>, value: Uint<128>, blinding: Bytes<32>): BidCandidate {
+  if (disclose(active)) {
+    const commitment = bidCommitmentFor(value, blinding);
+    assert(bidCommitments.lookup(disclose(id)) == disclose(commitment), "Resolution bid does not match its sealed commitment");
+    return BidCandidate { value: value, id: id };
+  } else {
+    return BidCandidate { value: 0, id: default<Bytes<32>> };
+  }
+}
+
+// Returns whichever candidate has the higher value (ties keep the first).
+// Never discloses either operand or the result - only resolveAuction()'s
+// final call site does that, for the winner of the whole reduction.
+circuit betterCandidate(a: BidCandidate, b: BidCandidate): BidCandidate {
+  return a.value >= b.value ? a : b;
+}
+
+// Resolves the auction: proves which sealed bid was highest and reveals
+// only that bidder's nullifier and bid amount. Every other bid's amount -
+// including every bid that was, for part of this computation, the leading
+// candidate - is never disclosed, never written to ledger state, and so
+// never appears anywhere in chain history. If no bid met the reserve price,
+// resolves to "no winner" (see winnerNullifier above) rather than failing,
+// so every bidder can still reclaim their deposit.
+//
+// Auctioneer-only, same nullifier check as closeAuction(). The auctioneer
+// must present all `bidderCount` real bids (each checked against its real
+// on-chain commitment) with no duplicates and no omissions - see the
+// distinctness/count checks below - so they cannot selectively exclude a
+// high bidder to manipulate the outcome.
+export circuit resolveAuction(): [] {
+  assert(!open, "Auction must be closed before it can be resolved");
+  assert(!resolved, "Auction has already been resolved");
+  const nullifier = disclose(auctioneerNullifierFor(mySecretId()));
+  assert(nullifier == auctioneerNullifier, "Only the auctioneer can resolve the auction");
+
+  const active = resolutionActive();
+  const ids = resolutionBidderIds();
+  const values = resolutionBidValues();
+  const blindings = resolutionBidBlindings();
+
+  // No two active slots may name the same bidder - otherwise the auctioneer
+  // could count one real bidder twice to silently drop another.
+  for (const i of 0..8) {
+    for (const j of 0..8) {
+      if (i < j) {
+        if (disclose(active[i]) && disclose(active[j])) {
+          assert(ids[i] != ids[j], "Duplicate bidder in resolution set");
+        }
+      }
+    }
+  }
+
+  // The number of active slots must match the real, public bidder count.
+  // Combined with distinctness and per-slot commitment verification above,
+  // this proves the active set is exactly the full set of real bidders -
+  // not a subset that happens to omit whoever bid highest.
+  const activeCount =
+    (disclose(active[0]) ? 1 : 0) + (disclose(active[1]) ? 1 : 0) +
+    (disclose(active[2]) ? 1 : 0) + (disclose(active[3]) ? 1 : 0) +
+    (disclose(active[4]) ? 1 : 0) + (disclose(active[5]) ? 1 : 0) +
+    (disclose(active[6]) ? 1 : 0) + (disclose(active[7]) ? 1 : 0);
+  assert(activeCount == bidderCount, "Resolution set does not cover every bidder");
+
+  const c0 = candidateFor(active[0], ids[0], values[0], blindings[0]);
+  const c1 = candidateFor(active[1], ids[1], values[1], blindings[1]);
+  const c2 = candidateFor(active[2], ids[2], values[2], blindings[2]);
+  const c3 = candidateFor(active[3], ids[3], values[3], blindings[3]);
+  const c4 = candidateFor(active[4], ids[4], values[4], blindings[4]);
+  const c5 = candidateFor(active[5], ids[5], values[5], blindings[5]);
+  const c6 = candidateFor(active[6], ids[6], values[6], blindings[6]);
+  const c7 = candidateFor(active[7], ids[7], values[7], blindings[7]);
+
+  const winner = betterCandidate(
+    betterCandidate(betterCandidate(c0, c1), betterCandidate(c2, c3)),
+    betterCandidate(betterCandidate(c4, c5), betterCandidate(c6, c7)),
+  );
+
+  // Whether the reserve was met is disclosed (it decides which public
+  // outcome the auction resolves to); the winner's identity and price are
+  // only disclosed inside this branch, exactly as before.
+  if (disclose(winner.value >= reservePrice)) {
+    winnerNullifier = disclose(winner.id);
+    winningPrice = disclose(winner.value);
+  } else {
+    winnerNullifier = default<Bytes<32>>;
+    winningPrice = 0;
+  }
+  resolved = true;
+}
+
+// Called by a losing bidder (or every bidder, if no one met the reserve) to
+// pull their fixed deposit back out of escrow, once the auction is
+// resolved. `recipient` is the caller's own unshielded address - it's
+// already who the funds belong to, so disclosing it here reveals nothing
+// beyond what sending it to themselves already would.
+export circuit reclaimDeposit(recipient: UserAddress): [] {
+  assert(resolved, "Auction has not been resolved yet");
+  const nullifier = disclose(bidderNullifierFor(mySecretId()));
+  assert(bidCommitments.member(nullifier), "This identity did not bid in this auction");
+  assert(nullifier != winnerNullifier, "The winning bidder must use claimWin, not reclaimDeposit");
+  assert(!reclaimed.member(nullifier), "Deposit already reclaimed");
+  reclaimed.insert(nullifier);
+  sendUnshielded(nativeToken(), requiredDeposit, right<ContractAddress, UserAddress>(disclose(recipient)));
+}
+
+// Called by the winning bidder to pull back the unused portion of their
+// deposit (requiredDeposit - winningPrice; the winningPrice portion stays
+// in escrow for the auctioneer, see withdrawProceeds). Safe to subtract
+// unchecked: placeBid already proved this bidder's sealed bid, which is
+// exactly winningPrice, never exceeded requiredDeposit.
+export circuit claimWin(recipient: UserAddress): [] {
+  assert(resolved, "Auction has not been resolved yet");
+  const nullifier = disclose(bidderNullifierFor(mySecretId()));
+  assert(nullifier == winnerNullifier, "Only the winning bidder can call claimWin");
+  assert(!winnerClaimed, "Winner has already claimed");
+  winnerClaimed = true;
+  const change = requiredDeposit - winningPrice;
+  sendUnshielded(nativeToken(), disclose(change), right<ContractAddress, UserAddress>(disclose(recipient)));
+}
+
+// Called by the auctioneer to withdraw the winning price from escrow, once
+// resolved. If no bid met the reserve, winningPrice is 0 and there is
+// nothing to withdraw.
+export circuit withdrawProceeds(recipient: UserAddress): [] {
+  assert(resolved, "Auction has not been resolved yet");
+  const nullifier = disclose(auctioneerNullifierFor(mySecretId()));
+  assert(nullifier == auctioneerNullifier, "Only the auctioneer can withdraw proceeds");
+  assert(!proceedsWithdrawn, "Proceeds already withdrawn");
+  assert(winningPrice > 0, "No bid met the reserve - nothing to withdraw");
+  proceedsWithdrawn = true;
+  sendUnshielded(nativeToken(), winningPrice, right<ContractAddress, UserAddress>(disclose(recipient)));
+}
+
+// Derives the public bidder nullifier for a private secret ID. Exposed so a
+// bidder's wallet can locally check whether their identity has already bid,
+// without needing to disclose the secret ID itself.
+export circuit bidderNullifierFor(secretId: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "sealed-bid-auction:bidder:"), secretId]);
+}
+
+// Same idea as bidderNullifierFor, but in its own hash domain so an
+// auctioneer's nullifier and their bidder nullifier (if they also bid,
+// using the same secret ID) can never collide or be linked to each other.
+export circuit auctioneerNullifierFor(secretId: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "sealed-bid-auction:auctioneer:"), secretId]);
+}
+
+// Derives the sealed commitment for a (bidValue, blinding) pair. Exported
+// so a bidder's wallet can locally recompute and verify its own commitment
+// against ledger state without needing to disclose either operand.
+export circuit bidCommitmentFor(bidValue: Uint<128>, blinding: Bytes<32>): Bytes<32> {
+  const valueHash = persistentHash<Vector<1, Uint<128>>>([bidValue]);
+  return persistentHash<Vector<2, Bytes<32>>>([blinding, valueHash]);
+}
