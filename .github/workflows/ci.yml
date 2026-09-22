@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Compact compiler
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Update Compact toolchain
+        run: compact update
+
+      # Known npm/arborist bug on a fresh install (no lockfile-free CI cache
+      # hit) around vitest's optional peer deps - see README "Setup".
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Compile contract
+        run: npm run compact --workspace=contract
+
+      - name: Build contract package
+        run: npm run build --workspace=contract
+
+      - name: Test contract (vitest, local simulator)
+        run: npm run test --workspace=contract
+
+      - name: Typecheck contract
+        run: npm run typecheck --workspace=contract
+
+      - name: Typecheck frontend
+        run: npm run typecheck --workspace=frontend
+
+      - name: Build frontend
+        run: npm run build --workspace=frontend
+
+      - name: Typecheck cli
+        run: npm run typecheck --workspace=cli
