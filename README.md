@@ -4,9 +4,11 @@
 
 A Midnight contract where anyone can list an item with a reserve price, and anyone can submit a bid that stays completely private while the auction is open — no one, including the auctioneer, can see any bid amount until the auction closes. At close, the contract proves who submitted the highest bid and reveals only that: the winner's identity and the winning price. Every losing bid's amount is never written to ledger state or disclosed in any transaction — it never appears in chain history.
 
-**Live Preprod demo:** _pending first Preprod deployment — see [Open items](#open-items)_
+**Live Preview demo:** _pending first deployment — see [Deploying to Preview via the browser](#deploying-to-preview-via-the-browser-recommended)_
 **Contract address:** _pending_
 **Follow along / product profile:** _pending_ — built in public, link goes here once the X profile is live.
+
+> **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-cli) below for the full writeup. Preview is the stable, working target for now.
 
 ## Why this needs Midnight
 
@@ -90,9 +92,9 @@ npm run dev --workspace=frontend       # http://localhost:5173
 
 Note: a fresh install also resolves `@swc/core` to a version that crashes `vite-plugin-top-level-await` during `vite build` ("missing field `type`"). The root `package.json`'s `overrides` field pins a known-working `@swc/core` version - if you ever remove that override, you'll likely hit the same crash.
 
-## Deploying to Preprod via the browser (recommended)
+## Deploying to Preview via the browser (recommended)
 
-The direct-SDK CLI path below (`cli/`) hits a real, currently-unresolved reliability wall against Preprod specifically - confirmed not just here but across a sibling project's own deploy logs (0 successful Preprod deploys in 12 attempts over a month, same code). A real Lace wallet in the browser uses a more mature sync/caching path and doesn't share that specific failure mode, so it's the more reliable way to get a live Preprod deployment:
+The direct-SDK CLI path below (`cli/`) hits a real, currently-unresolved reliability wall against the public testnets - confirmed not just here but across a sibling project's own deploy logs (0 successful Preprod deploys in 12 attempts over a month, same code; Preview only 2/16). A real Lace wallet in the browser uses a more mature sync/caching path and doesn't share that specific failure mode, so it's the reliable way to get a live deployment. Preprod itself never completed a deploy across many attempts either way, so **Preview** is the target used here:
 
 ```bash
 git clone https://github.com/Abidoyesimze/sealed-bid-auction.git
@@ -100,14 +102,14 @@ cd sealed-bid-auction
 npm install --legacy-peer-deps
 npm run compact --workspace=contract
 npm run build --workspace=contract
-cp frontend/.env.example frontend/.env.local   # sets VITE_NETWORK_ID=preprod
+cp frontend/.env.example frontend/.env.local   # sets VITE_NETWORK_ID=preview
 npm run dev --workspace=frontend               # http://localhost:5173
 ```
 
 Then:
-1. Install the [Lace wallet](https://www.lace.io/) extension, switch its network to **Preprod** in its settings.
-2. Fund it from the Preprod faucet: https://midnight-tmnight-preprod.nethermind.dev/ (captcha-gated - manual, not automatable).
-3. Open the app, click **Connect wallet**, then **List a new item** to deploy. The deployed contract address appears once the transaction confirms - that's your live Preprod demo link/address for the submission.
+1. Install the [Lace wallet](https://www.lace.io/) extension, switch its network to **Preview** in its settings.
+2. Fund it from the Preview faucet: https://midnight-tmnight-preview.nethermind.dev/ (captcha-gated - manual, not automatable).
+3. Open the app, click **Connect wallet**, then **List a new item** to deploy. The deployed contract address appears once the transaction confirms - that's your live demo link/address for the submission.
 
 ## Deploying (`cli/`)
 
