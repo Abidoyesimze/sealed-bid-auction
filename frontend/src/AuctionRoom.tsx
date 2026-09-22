@@ -3,18 +3,14 @@ import { pureCircuits, type RevealedBid } from '@sealed-bid-auction/contract';
 import type { SealedBidAuctionAPI, SealedBidAuctionDerivedState } from './lib/contract-api';
 import { generateAuctioneerKeyPair, encryptReveal, decryptReveal, type EncryptedReveal } from './lib/reveal';
 
-const toHex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 const bytesEqual = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
 const AUCTIONEER_KEY_PREFIX = 'sealed-bid-auction:auctioneer-key:';
 
-const section: React.CSSProperties = {
-  border: '1px solid #333',
-  borderRadius: 8,
-  padding: '1rem 1.25rem',
-  marginTop: '1rem',
-};
-const button: React.CSSProperties = { padding: '0.5rem 1rem', cursor: 'pointer' };
-const textarea: React.CSSProperties = { width: '100%', minHeight: 80, fontFamily: 'monospace', fontSize: 12 };
+function StatusBadge({ state }: { state: SealedBidAuctionDerivedState }) {
+  if (state.resolved) return <span className="badge badge-resolved">Resolved</span>;
+  if (state.open) return <span className="badge badge-open">Open</span>;
+  return <span className="badge badge-closed">Closed</span>;
+}
 
 export function AuctionRoom({
   api,
@@ -47,35 +43,62 @@ export function AuctionRoom({
     }
   };
 
-  if (!state) return <p>Loading auction state…</p>;
+  if (!state) {
+    return (
+      <div className="card">
+        <p>Loading auction state…</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2>{state.itemDescription}</h2>
-      <p>
-        Reserve price: {state.reservePrice.toString()} · Required deposit per bid: {state.requiredDeposit.toString()}{' '}
-        · Bidders so far: {state.bidderCount.toString()}
-      </p>
-      <p>
-        Status: {state.open ? 'open' : state.resolved ? 'resolved' : 'closed, not yet resolved'}
-        {state.isAuctioneer ? ' · you are the auctioneer' : ''}
-        {state.hasBid ? ' · you have placed a bid' : ''}
-      </p>
-      {error && <p style={{ color: '#f88' }}>{error}</p>}
+    <div className="stack gap-4">
+      <div className="card">
+        <div className="row gap-3" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+          <h1 style={{ fontSize: '1.4rem' }}>{state.itemDescription}</h1>
+          <StatusBadge state={state} />
+        </div>
+
+        <div className="stat-grid">
+          <div className="stat">
+            <span className="stat-label">Reserve price</span>
+            <span className="stat-value">{state.reservePrice.toString()}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Required deposit</span>
+            <span className="stat-value">{state.requiredDeposit.toString()}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Bidders</span>
+            <span className="stat-value">{state.bidderCount.toString()}</span>
+          </div>
+        </div>
+
+        {(state.isAuctioneer || state.hasBid) && (
+          <div className="row gap-2" style={{ marginTop: 'var(--space-4)' }}>
+            {state.isAuctioneer && <span className="badge badge-neutral">You're the auctioneer</span>}
+            {state.hasBid && <span className="badge badge-neutral">You've placed a bid</span>}
+          </div>
+        )}
+      </div>
+
+      {error && <div className="alert alert-error">{error}</div>}
 
       {state.open && !state.hasBid && !state.isAuctioneer && (
         <BidForm busy={busy} onSubmit={(amount) => run(() => api.placeBid(amount))} />
       )}
 
       {state.open && state.isAuctioneer && (
-        <button style={button} disabled={busy} onClick={() => run(() => api.closeAuction())}>
-          Close auction
-        </button>
+        <div className="card">
+          <div className="card-title">Auctioneer controls</div>
+          <div className="card-subtitle">Stop accepting bids once you're ready to resolve.</div>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => run(() => api.closeAuction())}>
+            Close auction
+          </button>
+        </div>
       )}
 
-      {!state.open && !state.resolved && !state.hasBid && !state.isAuctioneer && (
-        <BidderRevealPanel api={api} />
-      )}
+      {!state.open && !state.resolved && !state.hasBid && !state.isAuctioneer && <BidderRevealPanel api={api} />}
 
       {!state.open && !state.resolved && state.isAuctioneer && (
         <AuctioneerResolvePanel
@@ -89,28 +112,38 @@ export function AuctionRoom({
       )}
 
       {state.resolved && (
-        <div style={section}>
-          <h3>Resolved</h3>
-          <p>
+        <div className="card">
+          <div className="card-title">Resolved</div>
+          <p style={{ marginBottom: 'var(--space-4)' }}>
             {state.winningPrice > 0n
               ? `Winning price: ${state.winningPrice.toString()}`
-              : 'No bid met the reserve price - no winner.'}
+              : 'No bid met the reserve price — no winner.'}
           </p>
-          {state.isWinner && !state.winnerClaimed && (
-            <button style={button} disabled={busy} onClick={() => run(() => api.claimWin(myAddressBytes))}>
-              Claim my change
-            </button>
-          )}
-          {state.hasBid && !state.isWinner && (
-            <button style={button} disabled={busy} onClick={() => run(() => api.reclaimDeposit(myAddressBytes))}>
-              Reclaim my deposit
-            </button>
-          )}
-          {state.isAuctioneer && !state.proceedsWithdrawn && (
-            <button style={button} disabled={busy} onClick={() => run(() => api.withdrawProceeds(myAddressBytes))}>
-              Withdraw proceeds
-            </button>
-          )}
+          <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+            {state.isWinner && !state.winnerClaimed && (
+              <button className="btn btn-primary" disabled={busy} onClick={() => run(() => api.claimWin(myAddressBytes))}>
+                Claim my change
+              </button>
+            )}
+            {state.hasBid && !state.isWinner && (
+              <button
+                className="btn btn-secondary"
+                disabled={busy}
+                onClick={() => run(() => api.reclaimDeposit(myAddressBytes))}
+              >
+                Reclaim my deposit
+              </button>
+            )}
+            {state.isAuctioneer && !state.proceedsWithdrawn && (
+              <button
+                className="btn btn-secondary"
+                disabled={busy}
+                onClick={() => run(() => api.withdrawProceeds(myAddressBytes))}
+              >
+                Withdraw proceeds
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -120,23 +153,31 @@ export function AuctionRoom({
 function BidForm({ busy, onSubmit }: { busy: boolean; onSubmit: (amount: bigint) => void }) {
   const [amount, setAmount] = useState('');
   return (
-    <div style={section}>
-      <h3>Place a sealed bid</h3>
-      <p>Your bid amount is never disclosed to anyone - only a commitment to it is.</p>
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Bid amount" />
-      <button
-        style={button}
-        disabled={busy || !amount}
-        onClick={() => {
-          try {
-            onSubmit(BigInt(amount));
-          } catch {
-            /* invalid bigint input - button stays enabled, input unchanged */
-          }
-        }}
-      >
-        Seal bid
-      </button>
+    <div className="card">
+      <div className="card-title">Place a sealed bid</div>
+      <div className="card-subtitle">Your bid amount is never disclosed to anyone — only a commitment to it is.</div>
+      <div className="row gap-3">
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Bid amount"
+          inputMode="numeric"
+          style={{ flex: 1 }}
+        />
+        <button
+          className="btn btn-primary"
+          disabled={busy || !amount}
+          onClick={() => {
+            try {
+              onSubmit(BigInt(amount));
+            } catch {
+              /* invalid bigint input - button stays enabled, input unchanged */
+            }
+          }}
+        >
+          {busy ? 'Sealing…' : 'Seal bid'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -162,29 +203,42 @@ function BidderRevealPanel({ api }: { api: SealedBidAuctionAPI }) {
   };
 
   return (
-    <div style={section}>
-      <h3>Reveal your bid to the auctioneer</h3>
-      <p>
+    <div className="card">
+      <div className="card-title">Reveal your bid to the auctioneer</div>
+      <div className="card-subtitle">
         Paste the auctioneer's public key (shared with you out of band), then send them the encrypted output below
-        by whatever channel they asked for - it reveals your bid only to them, not to this app or anyone else.
-      </p>
-      <textarea
-        style={textarea}
-        value={auctioneerKeyJson}
-        onChange={(e) => setAuctioneerKeyJson(e.target.value)}
-        placeholder="Auctioneer's public key (JSON)"
-      />
-      <div>
-        <button style={button} onClick={encrypt} disabled={!auctioneerKeyJson}>
-          Encrypt my reveal
-        </button>
+        by whatever channel they asked for — it reveals your bid only to them, not to this app or anyone else.
       </div>
-      {error && <p style={{ color: '#f88' }}>{error}</p>}
+      <div className="field">
+        <label htmlFor="auctioneer-key">Auctioneer's public key</label>
+        <textarea
+          id="auctioneer-key"
+          className="mono"
+          style={{ minHeight: 80, fontSize: 12 }}
+          value={auctioneerKeyJson}
+          onChange={(e) => setAuctioneerKeyJson(e.target.value)}
+          placeholder="Paste the JSON public key here"
+        />
+      </div>
+      <button className="btn btn-primary" onClick={encrypt} disabled={!auctioneerKeyJson}>
+        Encrypt my reveal
+      </button>
+      {error && (
+        <div className="alert alert-error" style={{ marginTop: 'var(--space-3)' }}>
+          {error}
+        </div>
+      )}
       {output && (
-        <>
-          <p>Send this to the auctioneer:</p>
-          <textarea style={textarea} readOnly value={output} onFocus={(e) => e.currentTarget.select()} />
-        </>
+        <div className="field" style={{ marginTop: 'var(--space-4)', marginBottom: 0 }}>
+          <label>Send this to the auctioneer</label>
+          <textarea
+            className="mono"
+            style={{ minHeight: 80, fontSize: 12 }}
+            readOnly
+            value={output}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
       )}
     </div>
   );
@@ -257,45 +311,56 @@ function AuctioneerResolvePanel({
   };
 
   return (
-    <div style={section}>
-      <h3>Resolve the auction</h3>
+    <div className="card">
+      <div className="card-title">Resolve the auction</div>
       {!publicKeyJson ? (
         <>
-          <p>Generate a resolution key once - its public half goes to every bidder so they can send you their reveal.</p>
-          <button style={button} onClick={generateKey}>
+          <div className="card-subtitle">
+            Generate a resolution key once — its public half goes to every bidder so they can send you their reveal.
+          </div>
+          <button className="btn btn-primary" onClick={generateKey}>
             Generate resolution key
           </button>
         </>
       ) : (
         <>
-          <p>Share this public key with every bidder:</p>
-          <textarea style={textarea} readOnly value={publicKeyJson} onFocus={(e) => e.currentTarget.select()} />
-          <p>
-            Paste each bidder's encrypted reveal below ({gathered.length}/{bidderCount.toString()} gathered):
-          </p>
-          <textarea
-            style={textarea}
-            value={pasted}
-            onChange={(e) => setPasted(e.target.value)}
-            placeholder="Encrypted reveal (JSON)"
-          />
-          <div>
-            <button style={button} onClick={addReveal} disabled={!pasted}>
+          <div className="field">
+            <label>Share this public key with every bidder</label>
+            <textarea
+              className="mono"
+              style={{ minHeight: 80, fontSize: 12 }}
+              readOnly
+              value={publicKeyJson}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+          </div>
+          <div className="field">
+            <label>
+              Paste each bidder's encrypted reveal ({gathered.length}/{bidderCount.toString()} gathered)
+            </label>
+            <textarea
+              className="mono"
+              style={{ minHeight: 80, fontSize: 12 }}
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              placeholder="Encrypted reveal (JSON)"
+            />
+          </div>
+          <div className="row gap-2">
+            <button className="btn btn-secondary" onClick={addReveal} disabled={!pasted}>
               Add reveal
             </button>
-            <button
-              style={button}
-              disabled={busy || gathered.length === 0}
-              onClick={() => onResolve(gathered)}
-            >
-              Resolve with {gathered.length} gathered reveal{gathered.length === 1 ? '' : 's'}
+            <button className="btn btn-primary" disabled={busy || gathered.length === 0} onClick={() => onResolve(gathered)}>
+              {busy ? 'Resolving…' : `Resolve with ${gathered.length} gathered reveal${gathered.length === 1 ? '' : 's'}`}
             </button>
           </div>
-          {error && <p style={{ color: '#f88' }}>{error}</p>}
+          {error && (
+            <div className="alert alert-error" style={{ marginTop: 'var(--space-3)' }}>
+              {error}
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
-
-export { toHex };
