@@ -90,6 +90,25 @@ npm run dev --workspace=frontend       # http://localhost:5173
 
 Note: a fresh install also resolves `@swc/core` to a version that crashes `vite-plugin-top-level-await` during `vite build` ("missing field `type`"). The root `package.json`'s `overrides` field pins a known-working `@swc/core` version - if you ever remove that override, you'll likely hit the same crash.
 
+## Deploying to Preprod via the browser (recommended)
+
+The direct-SDK CLI path below (`cli/`) hits a real, currently-unresolved reliability wall against Preprod specifically - confirmed not just here but across a sibling project's own deploy logs (0 successful Preprod deploys in 12 attempts over a month, same code). A real Lace wallet in the browser uses a more mature sync/caching path and doesn't share that specific failure mode, so it's the more reliable way to get a live Preprod deployment:
+
+```bash
+git clone https://github.com/Abidoyesimze/sealed-bid-auction.git
+cd sealed-bid-auction
+npm install --legacy-peer-deps
+npm run compact --workspace=contract
+npm run build --workspace=contract
+cp frontend/.env.example frontend/.env.local   # sets VITE_NETWORK_ID=preprod
+npm run dev --workspace=frontend               # http://localhost:5173
+```
+
+Then:
+1. Install the [Lace wallet](https://www.lace.io/) extension, switch its network to **Preprod** in its settings.
+2. Fund it from the Preprod faucet: https://midnight-tmnight-preprod.nethermind.dev/ (captcha-gated - manual, not automatable).
+3. Open the app, click **Connect wallet**, then **List a new item** to deploy. The deployed contract address appears once the transaction confirms - that's your live Preprod demo link/address for the submission.
+
 ## Deploying (`cli/`)
 
 `cli/src/direct-deploy.ts` deploys this contract directly from a seed/mnemonic-based wallet - no browser extension needed - against Preview, Preprod, or a fully local network.
@@ -116,6 +135,8 @@ npm run preview-direct    # or: npm run preprod-direct
 ```
 
 The first run with no `WALLET_SEED`/`WALLET_MNEMONIC` generates a fresh wallet, logs its address, and waits for it to be funded - the public testnet faucets are captcha-gated, so fund that address manually at the network's faucet UI (e.g. `https://midnight-tmnight-preview.nethermind.dev/`), then either let the same run keep waiting or re-run with `WALLET_SEED=<the logged seed>` once funded. `ITEM_DESCRIPTION`, `RESERVE_PRICE`, and `REQUIRED_DEPOSIT` env vars override the deployed listing's defaults.
+
+**Known reliability issue (Preprod especially):** this direct-SDK path works reliably against a local network but is currently unreliable against the public testnets. Confirmed causes hit while building this: (1) the underlying wallet-sdk's sync-wait loop leaks memory badly enough to OOM a multi-GB Node heap during a long wait; (2) a fresh wallet with no known "birthday" has to walk its full DUST event history from genesis before showing a balance, which the SDK gives no way to persist or resume across process restarts - documented elsewhere as ~78 minutes on Preprod; (3) `submitAndWatchExtrinsic` intermittently loses its WebSocket connection mid-submission. None of this is specific to one machine - a sibling project using this exact ported code logged 0 successful Preprod deploys across 12 attempts over a month, and gave up on Preprod in favor of Preview for that reason. Use the browser+Lace path above instead if you hit this.
 
 ## Open items
 
