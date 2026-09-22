@@ -1,0 +1,126 @@
+:root {
+  --bg: #08080d;
+  --bg-elevated: #101018;
+  --bg-card: #131320;
+  --border: #23232f;
+  --border-strong: #33334a;
+
+  --text: #f4f4f8;
+  --text-muted: #9797ab;
+  --text-faint: #66667a;
+
+  --accent: #8b6cf5;
+  --accent-hover: #9d81f7;
+  --accent-soft: #8b6cf51a;
+  --accent-border: #8b6cf54d;
+
+  --success: #4ade80;
+  --success-soft: #4ade8022;
+  --warning: #fbbf24;
+  --warning-soft: #fbbf2422;
+  --danger: #f87171;
+  --danger-soft: #f8717122;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 0 1px var(--accent-border), 0 8px 32px -8px var(--accent-soft);
+
+  --max-width: 1120px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #8b6cf51f, transparent);
+  background-repeat: no-repeat;
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--accent-border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+}
+
+code {
+  font-family: var(--font-mono);
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0 var(--space-4);
+  }
+}

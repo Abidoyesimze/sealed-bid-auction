@@ -28,6 +28,7 @@
     "events": "^3.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.18.4",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
