@@ -62,7 +62,12 @@ export const generateDust = async (
   // DUST regeneration timing after a prior spend has been unpredictable in
   // practice on Preview - sometimes under a minute, sometimes much longer -
   // so this is deliberately generous rather than tuned to the common case.
-  const waitForDustBalance = (maxWaitMs = 90 * 60_000): Promise<bigint> =>
+  // Overridable via DUST_WAIT_MS: the underlying wallet-sdk sync subscription
+  // leaks memory over long waits badly enough to OOM a multi-GB heap well
+  // before 90 minutes elapse (observed directly against Preprod) - keeping
+  // this window short and re-running the whole CLI process from scratch
+  // (fresh heap each time) is more reliable than one process waiting it out.
+  const waitForDustBalance = (maxWaitMs = Number(process.env.DUST_WAIT_MS ?? 90 * 60_000)): Promise<bigint> =>
     waitForFacadeState(
       logger,
       walletFacade,
