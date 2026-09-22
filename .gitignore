@@ -1,0 +1,36 @@
+# Node.js
+node_modules/
+dist/
+build/
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+midnight-level-db/
+
+# Frontend: managed/ is copied from contract/src/managed at dev/build time
+# (see frontend/scripts/copy-managed.mjs) - the source of truth lives there.
+frontend/public/managed/
+
+# Test reports
+**/reports
+coverage/
+
+# dotenv environment variables file
+.env
+.env*
+!.env.example
+
+# MacOS
+.DS_Store
+
+# IDEs and editors
+.idea/
+*.suo
+
+# Output of 'npm pack'
+*.tgz
