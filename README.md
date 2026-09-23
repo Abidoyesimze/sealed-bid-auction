@@ -23,7 +23,7 @@ Who uses it: NFT marketplaces, real-estate/asset auctions, and procurement/RFP p
 
 ```
 contract/   Compact contract, compiled circuits (managed/), and unit tests (vitest)
-frontend/   React/Vite web UI: wallet connect, join by contract address, bid, resolve, settle
+frontend/   React/Vite web UI: wallet connect, deploy or join by contract address, bid, resolve, settle
 ```
 
 ## Current status
@@ -67,13 +67,13 @@ What it does *not* guarantee: the auctioneer's own device sees every bid's plain
 ### Frontend (`frontend/src`)
 
 - `lib/wallet-bridge.ts`, `lib/providers.ts`, `hooks/useLaceWallet.ts`: connects to an injected Lace wallet and builds the full Midnight provider bundle (indexer, private state, ZK config, proof delegation to the wallet). Modeled directly on the sibling ShadowPoll project's proven equivalent code.
-- `lib/contract-api.ts`: joins an already-deployed `SealedBidAuction` contract instance by address and calls every circuit; derives a per-wallet view of auction state (is this identity the auctioneer? have they bid? did they win?). Deployment itself is CLI-only (see below) — the frontend never deploys a contract, only interacts with one that already exists.
+- `lib/contract-api.ts`: deploys a new `SealedBidAuction` contract or joins an already-deployed one by address, and calls every circuit; derives a per-wallet view of auction state (is this identity the auctioneer? have they bid? did they win?).
 - `lib/reveal.ts`: the encrypted bidder → auctioneer reveal hand-off described above.
-- `App.tsx` / `AuctionRoom.tsx`: connect wallet → join an auction by contract address (a shortcut button prefills the live demo address) → place a sealed bid → (auctioneer) close, generate a resolution key, gather encrypted reveals, resolve → reclaim/claim/withdraw.
+- `pages/CreatePage.tsx` / `pages/AppPage.tsx` / `AuctionRoom.tsx`: connect wallet → deploy a new auction (`/create`) or join an existing one by contract address (`/app`, with a shortcut button for the live demo address) → place a sealed bid → (auctioneer) close, generate a resolution key, gather encrypted reveals, resolve → reclaim/claim/withdraw.
 
 **What's verified end to end:** the CLI deploy path (`cli/`) has been run successfully against both a local `midnight-local-dev` stack and the **public Preview network** (see the live contract address at the top of this README) - real node + indexer + proof server, not the vitest simulator - with the ledger state read back afterward matching exactly what the contract should produce on a fresh deploy. That's a genuine proof the full pipeline (Compact contract → compiled circuits → TypeScript bindings → wallet/provider wiring) works against a real public chain, not just local unit tests.
 
-**What's not yet verified:** the browser frontend's wallet-connect → join → bid → resolve flow has not been exercised against a real Lace wallet (no Lace extension available in the environment this was built in). What has been verified there: it typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, and the app renders and fails gracefully with no wallet installed (checked via headless Chrome + DevTools Protocol - zero console errors on load, "No Midnight wallet extension found" rather than a crash on connect).
+**What's not yet verified:** the browser frontend's wallet-connect → deploy/join → bid → resolve flow has not been exercised against a real Lace wallet (no Lace extension available in the environment this was built in). What has been verified there: it typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, and the app renders and fails gracefully with no wallet installed (checked via headless Chrome + DevTools Protocol - zero console errors on load, "No Midnight wallet extension found" rather than a crash on connect).
 
 ## Prerequisites
 
@@ -95,9 +95,12 @@ npm run dev --workspace=frontend       # http://localhost:5173
 
 Note: a fresh install also resolves `@swc/core` to a version that crashes `vite-plugin-top-level-await` during `vite build` ("missing field `type`"). The root `package.json`'s `overrides` field pins a known-working `@swc/core` version - if you ever remove that override, you'll likely hit the same crash.
 
-## Using the frontend against the live auction
+## Using the frontend
 
-The frontend only *uses* a contract that's already been deployed (via the CLI, below) - it has no deploy capability of its own. To try it against the live Preview deployment:
+The frontend can deploy a brand new auction (`/create`) or join one that already exists by contract address
+(`/app`, with a shortcut button for the live demo). Both need a Preview-network Lace wallet. Live at
+[sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/), or run it
+locally:
 
 ```bash
 git clone https://github.com/Abidoyesimze/sealed-bid-auction.git
@@ -112,7 +115,9 @@ npm run dev --workspace=frontend               # http://localhost:5173
 Then:
 1. Install the [Lace wallet](https://www.lace.io/) extension, switch its network to **Preview** in its settings.
 2. Fund it from the Preview faucet: https://midnight-tmnight-preview.nethermind.dev/ (captcha-gated - manual, not automatable).
-3. Open the app, click **Connect wallet**, then **Use the live demo auction** (or paste any other deployed contract's address) to join it.
+3. Open the app, click **Connect wallet**, then either **Create an auction** (deploy a new one - can take a
+   while against a public network, see the timing note above) or **Use the live demo auction** on the join page
+   (or paste any other deployed contract's address).
 
 ## Deploying (`cli/`)
 

@@ -69,6 +69,18 @@
   margin-bottom: var(--space-4);
 }
 
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
 /* Form */
 .field {
   display: flex;

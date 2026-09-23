@@ -15,7 +15,7 @@ import {
 
 import { type ContractAddress } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
 import { type MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
-import { type FoundContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
+import { type FoundContract, deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { combineLatest, map, from, type Observable } from 'rxjs';
 import { Buffer } from 'buffer';
 
@@ -214,6 +214,32 @@ export class SealedBidAuctionAPI implements DeployedSealedBidAuctionAPI {
     this.logger?.info('withdrawingProceeds');
     const txData = await this.deployedContract.callTx.withdrawProceeds({ bytes: recipientAddressBytes });
     this.logger?.trace({ transactionAdded: { circuit: 'withdrawProceeds', txHash: txData.public.txHash } });
+  }
+
+  /**
+   * Deploys a new SealedBidAuction contract - `itemDescription` and
+   * `reservePrice` are public; `requiredDeposit` is the fixed escrow amount
+   * every bidder will lock, also public (see contract README - the deposit
+   * amount is public by design, the bid amount underneath it is not).
+   */
+  static async deploy(
+    providers: SealedBidAuctionProviders,
+    itemDescription: string,
+    reservePrice: bigint,
+    requiredDeposit: bigint,
+    logger?: Logger,
+  ): Promise<SealedBidAuctionAPI> {
+    logger?.info('deployContract');
+
+    const deployed = await deployContract(providers, {
+      compiledContract: CompiledSealedBidAuctionContractContract,
+      privateStateId: sealedBidAuctionPrivateStateKey,
+      initialPrivateState: createSealedBidAuctionPrivateState(randomBytes32(), 0n, randomBytes32()),
+      args: [itemDescription, reservePrice, requiredDeposit],
+    });
+
+    logger?.trace({ contractDeployed: { finalizedDeployTxData: deployed.deployTxData.public } });
+    return new SealedBidAuctionAPI(deployed, providers, logger);
   }
 
   /** Finds an already-deployed SealedBidAuction contract on the network, and joins it. */

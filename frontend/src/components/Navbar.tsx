@@ -19,6 +19,9 @@ export function Navbar({ wallet, onConnect }: { wallet: LaceConnectionState; onC
           <NavLink to="/app" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
             Launch App
           </NavLink>
+          <NavLink to="/create" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+            Create
+          </NavLink>
         </nav>
 
         {wallet.status === 'connected' ? (

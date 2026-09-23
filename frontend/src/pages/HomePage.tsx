@@ -74,16 +74,8 @@ export function HomePage() {
             <div>
               <h3>An auctioneer deploys</h3>
               <p>
-                Deploying is CLI-only for now (a public reserve price and the required deposit are set at deploy
-                time) —{' '}
-                <a
-                  href="https://github.com/Abidoyesimze/sealed-bid-auction#deploying-cli"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  see the CLI guide
-                </a>
-                .
+                <Link to="/create">Create an auction</Link> with a public reserve price and the deposit every
+                bidder must lock.
               </p>
             </div>
           </div>
@@ -122,11 +114,17 @@ export function HomePage() {
         <div className="card" style={{ textAlign: 'center', padding: 'var(--space-7)' }}>
           <h2 style={{ marginBottom: 'var(--space-3)' }}>Ready to run a private auction?</h2>
           <p style={{ maxWidth: 480, margin: '0 auto var(--space-5)' }}>
-            Connect a Lace wallet and join an auction by its contract address — including the live demo deployment.
+            Connect a Lace wallet, then create a new auction or join one by its contract address — including the
+            live demo deployment.
           </p>
-          <Link to="/app" className="btn btn-primary">
-            Launch app
-          </Link>
+          <div className="row gap-3" style={{ justifyContent: 'center' }}>
+            <Link to="/create" className="btn btn-primary">
+              Create an auction
+            </Link>
+            <Link to="/app" className="btn btn-secondary">
+              Join an auction
+            </Link>
+          </div>
         </div>
       </section>
     </main>
