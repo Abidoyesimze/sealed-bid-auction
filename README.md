@@ -1,39 +1,84 @@
 # Sealed-Bid Auction
 
 [![CI](https://github.com/Abidoyesimze/sealed-bid-auction/actions/workflows/ci.yml/badge.svg)](https://github.com/Abidoyesimze/sealed-bid-auction/actions/workflows/ci.yml)
+[![Built on Midnight](https://img.shields.io/badge/built%20on-Midnight-8b6cf5)](https://midnight.network/)
 
-A Midnight contract where anyone can list an item with a reserve price, and anyone can submit a bid that stays completely private while the auction is open — no one, including the auctioneer, can see any bid amount until the auction closes. At close, the contract proves who submitted the highest bid and reveals only that: the winner's identity and the winning price. Every losing bid's amount is never written to ledger state or disclosed in any transaction — it never appears in chain history.
+A full-stack, privacy-preserving sealed-bid auction platform built on [Midnight](https://midnight.network/): a Compact smart contract, a React web app people actually use to deploy and bid, and CLI tooling to run it all against a real network. Bids stay sealed until the auction closes — no one, not other bidders, not the auctioneer, not even the contract's own deployer, can see a bid amount while the auction is open. At close, the contract *proves* who bid highest using a zero-knowledge circuit and discloses only that: the winner's identity and the winning price. Every losing bid's amount is never written to ledger state, never appears in a transaction, and never appears in chain history — permanently.
 
-**Live network:** Preview
-**Contract address:** [`ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f`](https://indexer.preview.midnight.network/api/v4/graphql)
-**Live app:** [sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/) — connect a Preview-network Lace wallet, then use the live demo auction shortcut to join the contract above.
-**Follow along / product profile:** [@SealedBidMN](https://x.com/SealedBidMN)
-**Demo video:** [Loom walkthrough](https://www.loom.com/share/3d07f8b3157c4002935ca48342463bd9)
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Sealed-Bid Auction landing page" width="720">
+</p>
 
-> **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-cli) below for the full writeup. Preview is the stable, working target for now.
+## Live links
+
+| | |
+|---|---|
+| **Live app** | [sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/) |
+| **Live network** | Preview |
+| **Contract address** | [`ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f`](https://indexer.preview.midnight.network/api/v4/graphql) |
+| **Demo video** | [Loom walkthrough](https://www.loom.com/share/3d07f8b3157c4002935ca48342463bd9) |
+| **Follow along** | [@SealedBidMN on X](https://x.com/SealedBidMN) |
+| **CI** | [GitHub Actions](https://github.com/Abidoyesimze/sealed-bid-auction/actions/workflows/ci.yml) |
+
+> **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-a-new-auction-cli) below for the full writeup. Preview is the stable, working target for now.
 >
-> **On deploy timing:** getting this deployment through took roughly 6 hours of a single CLI process waiting through the wallet's full three-lane (shielded/unshielded/DUST) sync before it would build a valid spend proof - the funds and DUST were confirmed present on-chain almost immediately, the wait was entirely this client-side sync catching up. This matches the exact flow in Midnight's own official CLI tutorial (no shortcut skipped), so it's a current characteristic of the public Preview network/tooling, not a bug in this project.
+> **On deploy timing:** getting the live deployment above through took roughly 6 hours of a single CLI process waiting through the wallet's full three-lane (shielded/unshielded/DUST) sync before it would build a valid spend proof — the funds and DUST were confirmed present on-chain almost immediately, the wait was entirely this client-side sync catching up. This matches the exact flow in Midnight's own official CLI tutorial (no shortcut skipped), so it's a current characteristic of the public Preview network/tooling, not a bug in this project.
+
+## Contents
+
+- [What this is](#what-this-is)
+- [Why this needs Midnight](#why-this-needs-midnight)
+- [Architecture](#architecture)
+- [Design deep dive](#design-deep-dive)
+  - [The contract](#the-contract-contractsrcsealed-bid-auctioncompact-18-passing-vitest-tests)
+  - [Escrow](#escrow)
+  - [How resolution actually achieves privacy (and its one honest limitation)](#how-resolution-actually-achieves-privacy-and-its-one-honest-limitation)
+  - [The frontend](#the-frontend-frontendsrc)
+- [Getting started](#getting-started)
+- [Using the app](#using-the-app)
+- [Deploying a new auction (`cli/`)](#deploying-a-new-auction-cli)
+- [Open items](#open-items)
+
+## What this is
+
+This isn't just a smart contract — it's a complete product with three parts that all ship together in this one repo:
+
+| | |
+|---|---|
+| **`contract/`** | The Compact smart contract itself: sealed bids, ZK-proven resolution, escrow, settlement. 18 passing vitest tests running entirely in the local simulator. |
+| **`frontend/`** | A real React web app — home page, wallet connect, deploy a new auction or join an existing one, place bids, resolve, settle — not a bare-bones demo page. Live at [sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/). |
+| **`cli/`** | Direct-SDK deploy tooling that talks to a real Midnight network (local, Preview, or Preprod) from a seed/mnemonic-based wallet, no browser extension needed. This is what put the live contract address above on-chain. |
+
+All three are wired together end to end and covered by one CI pipeline (compile the contract, run its tests, typecheck and build every workspace) that has to stay green for a change to merge.
 
 ## Why this needs Midnight
 
-On a transparent smart-contract chain, bid amounts as calldata are public even without a UI for them — anyone can read the mempool or contract state. "Private bidding" there means trusting an off-chain auctioneer to honestly evaluate sealed bids, with no way for participants to verify afterward that the declared winner is actually correct. Midnight's shielded state and ZK circuits let the contract prove a comparative claim ("bidder A's committed value is greater than every other committed value") without disclosing the operands on-chain, so this gets verifiable correctness *and* on-chain bid privacy without a trusted intermediary. (See "How resolution actually achieves privacy" below for the one place this project still relies on a single party, off-chain.)
+On a transparent smart-contract chain, bid amounts as calldata are public even without a UI for them — anyone can read the mempool or contract state. "Private bidding" there means trusting an off-chain auctioneer to honestly evaluate sealed bids, with no way for participants to verify afterward that the declared winner is actually correct. Midnight's shielded state and ZK circuits let the contract prove a comparative claim ("bidder A's committed value is greater than every other committed value") without disclosing the operands on-chain, so this gets verifiable correctness *and* on-chain bid privacy without a trusted intermediary. (See [How resolution actually achieves privacy](#how-resolution-actually-achieves-privacy-and-its-one-honest-limitation) below for the one place this project still relies on a single party, off-chain.)
 
 Who uses it: NFT marketplaces, real-estate/asset auctions, and procurement/RFP processes, where bid privacy prevents collusion and bid-sniping, and participants need a publicly verifiable guarantee the auction wasn't rigged.
 
-## Repo layout
+## Architecture
 
 ```
-contract/   Compact contract, compiled circuits (managed/), and unit tests (vitest)
-frontend/   React/Vite web UI: wallet connect, deploy or join by contract address, bid, resolve, settle
+sealed-bid-auction/
+├── contract/     Compact contract, compiled circuits (managed/), and unit tests (vitest)
+│   └── src/sealed-bid-auction.compact
+├── frontend/     React 19 + Vite 6 web app: home page, wallet connect, deploy/join, bid, resolve, settle
+│   └── src/pages/{HomePage,AppPage,CreatePage}.tsx, AuctionRoom.tsx, lib/contract-api.ts
+├── cli/          Direct-SDK deploy tooling (no browser needed) - local, Preview, or Preprod
+│   └── src/direct-deploy.ts
+└── .github/workflows/ci.yml   Compile → test → typecheck → build, for all three workspaces
 ```
 
-## Current status
+It's an npm workspaces monorepo. The frontend imports the contract package's compiled output directly (`@sealed-bid-auction/contract`), so contract and client are always built from the same source of truth — no copy-pasted ABI or manually kept-in-sync types.
 
-Implemented, tested, and wired up end to end - contract logic through the browser UI (wallet interaction itself untested here; see "What's not verified" below).
+**Tech stack:** Compact (Midnight's contract language) · `@midnight-ntwrk/midnight-js-*` 4.1.1 · React 19 · Vite 6 · React Router 7 · RxJS · vitest · GitHub Actions · Vercel.
 
-### Contract (`contract/src/sealed-bid-auction.compact`, 18 passing vitest tests)
+## Design deep dive
 
-- **Constructor:** sets the public item description, reserve price, and `requiredDeposit` (the fixed escrow amount every bidder locks - see Escrow below), and commits the auctioneer's nullifier.
+### The contract (`contract/src/sealed-bid-auction.compact`, 18 passing vitest tests)
+
+- **Constructor:** sets the public item description, reserve price, and `requiredDeposit` (the fixed escrow amount every bidder locks - see [Escrow](#escrow) below), and commits the auctioneer's nullifier.
 - **`placeBid`:** seals a bid as `hash(bidValue, blindingFactor)`, keyed by the bidder's own nullifier so one identity can't bid twice, and locks `requiredDeposit` in escrow via `receiveUnshielded`. Neither the bid amount nor the blinding factor is ever written to ledger state. Capped at 8 bidders per auction (see below).
 - **`closeAuction`:** auctioneer-only, stops further bidding.
 - **`resolveAuction`:** proves which sealed bid was highest and discloses *only* the winner's nullifier and bid amount. The whole comparison - verifying every bid against its commitment, checking for duplicates/omissions, and reducing to a max - happens inside this single circuit call, so no intermediate "currently leading bid" is ever written to ledger state. If no bid met the reserve, resolves to "no winner" (an all-zero sentinel) rather than failing, so deposits never get stuck. That "never expose an intermediate leader" property is the trap two real reference sealed-bid-auction implementations on Midnight fell into when we checked them before building this (one makes all bid amounts public with only pseudonymous identity; the other has every bidder unconditionally disclose their own amount during an on-chain reveal step) - neither actually keeps losing bid amounts off the chain.
@@ -65,64 +110,57 @@ What it does *not* guarantee: the auctioneer's own device sees every bid's plain
 
 **Tie-breaking:** currently arbitrary (whichever candidate appears first in the auctioneer-submitted resolution order) - Compact's `Bytes<32>` has no ordering comparison to break ties canonically by nullifier, and ties are rare enough with real bid amounts that this wasn't worth engineering around further.
 
-### Frontend (`frontend/src`)
+### The frontend (`frontend/src`)
 
-- `lib/wallet-bridge.ts`, `lib/providers.ts`, `hooks/useLaceWallet.ts`: connects to an injected Lace wallet and builds the full Midnight provider bundle (indexer, private state, ZK config, proof delegation to the wallet). Modeled directly on the sibling ShadowPoll project's proven equivalent code.
-- `lib/contract-api.ts`: deploys a new `SealedBidAuction` contract or joins an already-deployed one by address, and calls every circuit; derives a per-wallet view of auction state (is this identity the auctioneer? have they bid? did they win?).
-- `lib/reveal.ts`: the encrypted bidder → auctioneer reveal hand-off described above.
-- `pages/CreatePage.tsx` / `pages/AppPage.tsx` / `AuctionRoom.tsx`: connect wallet → deploy a new auction (`/create`) or join an existing one by contract address (`/app`, with a shortcut button for the live demo address) → place a sealed bid → (auctioneer) close, generate a resolution key, gather encrypted reveals, resolve → reclaim/claim/withdraw.
+A real product, not a single test page: a marketing home page, a sticky navbar with wallet-connect, and three routes.
 
-**What's verified end to end:** the CLI deploy path (`cli/`) has been run successfully against both a local `midnight-local-dev` stack and the **public Preview network** (see the live contract address at the top of this README) - real node + indexer + proof server, not the vitest simulator - with the ledger state read back afterward matching exactly what the contract should produce on a fresh deploy. That's a genuine proof the full pipeline (Compact contract → compiled circuits → TypeScript bindings → wallet/provider wiring) works against a real public chain, not just local unit tests.
+- **`/` (`pages/HomePage.tsx`):** the pitch, why it matters, and a five-step "how it works" walkthrough.
+- **`/create` (`pages/CreatePage.tsx`):** deploy a brand new auction - item description, reserve price, required deposit - then drops straight into the auction room to manage it.
+- **`/app` (`pages/AppPage.tsx`):** join an existing auction. A "known auctions" list shows a curated set of addresses (currently just the live demo) with a live preview of each one's public details - item, reserve price, deposit, bidder count, status - fetched read-only before you commit to joining. You can also paste any other auction's contract address directly. (There's no on-chain registry for "every deployed instance of this contract" on Midnight - the indexer looks up one contract by address, it doesn't list a type's instances - so this is necessarily a curated list, not automatic discovery.)
+- **`AuctionRoom.tsx`:** the shared auction-interaction UI once you've deployed or joined - place a sealed bid, and (as auctioneer) close the auction, generate a resolution key, gather bidders' encrypted reveals, resolve, then reclaim/claim/withdraw.
 
-**What's not yet verified:** the browser frontend's wallet-connect → deploy/join → bid → resolve flow has not been exercised against a real Lace wallet (no Lace extension available in the environment this was built in). What has been verified there: it typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, and the app renders and fails gracefully with no wallet installed (checked via headless Chrome + DevTools Protocol - zero console errors on load, "No Midnight wallet extension found" rather than a crash on connect).
+Supporting libraries:
+- `lib/wallet-bridge.ts`, `lib/providers.ts`, `hooks/useLaceWallet.ts`: connect to an injected Lace wallet and build the full Midnight provider bundle (indexer, private state, ZK config, proof delegation to the wallet).
+- `lib/contract-api.ts`: deploys a new `SealedBidAuction` contract, joins an existing one by address, or reads one's public state read-only for a preview - and calls every circuit; derives a per-wallet view of auction state (is this identity the auctioneer? have they bid? did they win?).
+- `lib/reveal.ts`: the encrypted bidder → auctioneer reveal hand-off described [above](#how-resolution-actually-achieves-privacy-and-its-one-honest-limitation).
 
-## Prerequisites
+**What's verified end to end:** the CLI deploy path (`cli/`) has been run successfully against both a local `midnight-local-dev` stack and the **public Preview network** (see the live contract address above) - real node + indexer + proof server, not the vitest simulator - with the ledger state read back afterward matching exactly what the contract should produce on a fresh deploy. That's a genuine proof the full pipeline (Compact contract → compiled circuits → TypeScript bindings → wallet/provider wiring) works against a real public chain, not just local unit tests. The frontend itself typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, is live on Vercel, and renders correctly at both desktop and mobile widths.
 
+## Getting started
+
+**Prerequisites:**
 - [Node.js 22+](https://nodejs.org) (see `.nvmrc`)
-- The [Compact compiler](https://docs.midnight.network/develop/tutorial/building/) (`compact` CLI) — already installed on this machine (`compact --version`)
+- The [Compact compiler](https://docs.midnight.network/develop/tutorial/building/) (`compact` CLI)
 - [Docker](https://www.docker.com/), only if/when running a local proof server for deploys
 - The [Lace wallet](https://www.lace.io/) browser extension, to actually use the frontend
 
-## Setup
-
-```bash
-npm install --legacy-peer-deps  # plain "npm install" hits a known npm/arborist bug
-                                 # around vitest's optional peer deps (npm 11.3.0)
-npm run compact --workspace=contract   # compiles src/sealed-bid-auction.compact -> src/managed/
-npm run build --workspace=contract     # compiles src/managed -> dist/ (frontend imports the built package)
-npm run test --workspace=contract      # vitest, runs entirely in the local simulator
-npm run dev --workspace=frontend       # http://localhost:5173
-```
-
-Note: a fresh install also resolves `@swc/core` to a version that crashes `vite-plugin-top-level-await` during `vite build` ("missing field `type`"). The root `package.json`'s `overrides` field pins a known-working `@swc/core` version - if you ever remove that override, you'll likely hit the same crash.
-
-## Using the frontend
-
-The frontend can deploy a brand new auction (`/create`) or join one that already exists by contract address
-(`/app`, with a shortcut button for the live demo). Both need a Preview-network Lace wallet. Live at
-[sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/), or run it
-locally:
+**Setup:**
 
 ```bash
 git clone https://github.com/Abidoyesimze/sealed-bid-auction.git
 cd sealed-bid-auction
-npm install --legacy-peer-deps
-npm run compact --workspace=contract
-npm run build --workspace=contract
-cp frontend/.env.example frontend/.env.local   # sets VITE_NETWORK_ID=preview
-npm run dev --workspace=frontend               # http://localhost:5173
+npm install --legacy-peer-deps          # a committed .npmrc also sets this automatically
+npm run compact --workspace=contract    # compiles src/sealed-bid-auction.compact -> src/managed/
+npm run build --workspace=contract      # compiles src/managed -> dist/ (frontend imports the built package)
+npm run test --workspace=contract       # vitest, runs entirely in the local simulator
+npm run dev --workspace=frontend        # http://localhost:5173
 ```
 
-Then:
+Note: a fresh install used to resolve `@swc/core` to a version that crashes `vite-plugin-top-level-await` during `vite build` ("missing field `type`"). The root `package.json`'s `overrides` field pins a known-working `@swc/core` version - if you ever remove that override, you'll likely hit the same crash.
+
+## Using the app
+
+The live app is at [sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/), or run it locally with the setup above. Either way:
+
 1. Install the [Lace wallet](https://www.lace.io/) extension, switch its network to **Preview** in its settings.
 2. Fund it from the Preview faucet: https://midnight-tmnight-preview.nethermind.dev/ (captcha-gated - manual, not automatable).
-3. Open the app, click **Connect wallet**, then either **Create an auction** (deploy a new one - can take a
-   while against a public network, see the timing note above) or **Use the live demo auction** on the join page
-   (or paste any other deployed contract's address).
+3. Click **Connect wallet**, then either:
+   - **Create an auction** - deploy a new one with your own item description, reserve price, and deposit (can take a while against a public network, see the timing note at the top).
+   - **Launch App** → join an existing one - pick the live demo from the known-auctions list, or paste any other deployed contract's address.
 
-## Deploying (`cli/`)
+## Deploying a new auction (`cli/`)
 
-`cli/src/direct-deploy.ts` deploys this contract directly from a seed/mnemonic-based wallet - no browser extension needed - against Preview, Preprod, or a fully local network.
+The frontend can deploy too (see above), but `cli/src/direct-deploy.ts` deploys the same contract directly from a seed/mnemonic-based wallet - no browser extension needed - against Preview, Preprod, or a fully local network. This is what actually put the live contract address at the top of this README on-chain.
 
 **Local (fastest, no faucet):**
 
@@ -147,11 +185,12 @@ npm run preview-direct    # or: npm run preprod-direct
 
 The first run with no `WALLET_SEED`/`WALLET_MNEMONIC` generates a fresh wallet, logs its address, and waits for it to be funded - the public testnet faucets are captcha-gated, so fund that address manually at the network's faucet UI (e.g. `https://midnight-tmnight-preview.nethermind.dev/`), then either let the same run keep waiting or re-run with `WALLET_SEED=<the logged seed>` once funded. `ITEM_DESCRIPTION`, `RESERVE_PRICE`, and `REQUIRED_DEPOSIT` env vars override the deployed listing's defaults.
 
-**Known reliability issue (Preprod especially):** this direct-SDK path works reliably against a local network but is currently unreliable against the public testnets. Confirmed causes hit while building this: (1) the underlying wallet-sdk's sync-wait loop leaks memory badly enough to OOM a multi-GB Node heap during a long wait; (2) a fresh wallet with no known "birthday" has to walk its full DUST event history from genesis before showing a balance, which the SDK gives no way to persist or resume across process restarts - documented elsewhere as ~78 minutes on Preprod; (3) `submitAndWatchExtrinsic` intermittently loses its WebSocket connection mid-submission. None of this is specific to one machine - a sibling project using this exact ported code logged 0 successful Preprod deploys across 12 attempts over a month, and gave up on Preprod in favor of Preview for that reason. Preview eventually succeeds; it just needs patience (see the live contract address at the top of this README) - retry loops and/or a long uninterrupted run are the practical workaround.
+**Known reliability issue (Preprod especially):** this direct-SDK path works reliably against a local network but is currently unreliable against the public testnets. Confirmed causes hit while building this: (1) the underlying wallet-sdk's sync-wait loop leaks memory badly enough to OOM a multi-GB Node heap during a long wait; (2) a fresh wallet with no known "birthday" has to walk its full DUST event history from genesis before showing a balance, which the SDK gives no way to persist or resume across process restarts - documented elsewhere as ~78 minutes on Preprod; (3) `submitAndWatchExtrinsic` intermittently loses its WebSocket connection mid-submission. None of this is specific to one machine - a sibling project using this exact ported code logged 0 successful Preprod deploys across 12 attempts over a month, and gave up on Preprod in favor of Preview for that reason. Preview eventually succeeds; it just needs patience (see the live contract address above) - retry loops and/or a long uninterrupted run are the practical workaround.
 
 ## Open items
 
 1. **Raising or removing the 8-bidder cap** — bigger fixed width, or a batched/recursive design, if a real auction needs more bidders.
-2. **Full lifecycle verification against a real Lace wallet in the browser** - deployment is proven (see the live contract address above, deployed via the CLI); joining, bidding from multiple identities, reveal, resolve, and settle through the frontend have not yet been exercised against a real wallet.
+2. **Full lifecycle verification against a real Lace wallet in the browser** - deployment is proven (see the live contract address above, deployed via the CLI); joining, bidding from multiple identities, reveal, resolve, and settle through the frontend are being exercised live against a real wallet as this README is being written.
 3. **Reveal hand-off transport UX** - `reveal.ts` only handles the encryption; bidders and the auctioneer currently copy/paste JSON blobs by hand. A real deployment would want a small relay (or QR codes, or email) instead.
 4. **Preprod support once its tooling stabilizes** - the contract and deploy code already support it (`npm run preprod-direct`); only the public network's current reliability is the blocker.
+5. **A real auction registry** - the "known auctions" list in the frontend is manually curated; a factory contract or off-chain indexer would let it grow automatically as auctions get deployed.
