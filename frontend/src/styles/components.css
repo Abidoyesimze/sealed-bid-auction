@@ -50,6 +50,30 @@
   width: 100%;
 }
 
+/* Clickable card - like .card, but an interactive <button> with normal
+   block layout (unlike .btn, which is an inline-flex row that clips
+   multi-line content) */
+.card-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.card-button:hover:not(:disabled) {
+  border-color: var(--accent-border);
+}
+.card-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Cards */
 .card {
   background: var(--bg-card);

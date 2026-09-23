@@ -118,13 +118,8 @@ function KnownAuctionCard({
   }, [providers, address]);
 
   return (
-    <button
-      className="btn btn-secondary btn-block"
-      style={{ textAlign: 'left', height: 'auto', padding: 'var(--space-4)' }}
-      disabled={busy}
-      onClick={() => onJoin(address)}
-    >
-      <div className="row gap-3" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+    <button className="card-button" disabled={busy} onClick={() => onJoin(address)}>
+      <div className="row gap-3" style={{ justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
         <span style={{ fontWeight: 650 }}>{label}</span>
         {preview && preview !== 'error' && <StatusBadge preview={preview} />}
       </div>
@@ -135,15 +130,15 @@ function KnownAuctionCard({
           <p className="text-sm" style={{ marginBottom: 'var(--space-2)' }}>
             {preview.itemDescription}
           </p>
-          <div className="row gap-4 text-sm text-muted">
+          <div className="row gap-4 text-sm text-muted" style={{ flexWrap: 'wrap' }}>
             <span>Reserve: {preview.reservePrice.toString()}</span>
             <span>Deposit: {preview.requiredDeposit.toString()}</span>
             <span>{preview.bidderCount.toString()} bidder(s)</span>
           </div>
         </>
       )}
-      <div className="mono text-faint text-sm" style={{ marginTop: 'var(--space-2)' }}>
-        {address.slice(0, 14)}…
+      <div className="mono text-faint text-sm" style={{ marginTop: 'var(--space-2)', wordBreak: 'break-all' }}>
+        {address}
       </div>
     </button>
   );
