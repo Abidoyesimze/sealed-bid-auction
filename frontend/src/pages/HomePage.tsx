@@ -66,32 +66,50 @@ export function HomePage() {
       <section className="section container">
         <div className="section-header">
           <div className="section-eyebrow">How it works</div>
-          <h2>Four steps, one privacy-preserving circuit</h2>
+          <h2>Five steps, one privacy-preserving circuit</h2>
         </div>
         <div className="stack gap-4" style={{ maxWidth: 640, margin: '0 auto' }}>
           <div className="step">
             <span className="step-number">1</span>
             <div>
-              <h3>Join an auction</h3>
-              <p>Connect your wallet and open an existing auction by its contract address — a public reserve price and the required deposit are set when it's deployed.</p>
+              <h3>An auctioneer deploys</h3>
+              <p>
+                Deploying is CLI-only for now (a public reserve price and the required deposit are set at deploy
+                time) —{' '}
+                <a
+                  href="https://github.com/Abidoyesimze/sealed-bid-auction#deploying-cli"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  see the CLI guide
+                </a>
+                .
+              </p>
             </div>
           </div>
           <div className="step">
             <span className="step-number">2</span>
+            <div>
+              <h3>Bidders join</h3>
+              <p>Connect a wallet in the app and open the auction by its contract address.</p>
+            </div>
+          </div>
+          <div className="step">
+            <span className="step-number">3</span>
             <div>
               <h3>Bidders seal their bids</h3>
               <p>Each bid is committed as a hash — the amount never touches the ledger.</p>
             </div>
           </div>
           <div className="step">
-            <span className="step-number">3</span>
+            <span className="step-number">4</span>
             <div>
               <h3>Close and resolve</h3>
               <p>One circuit call proves the highest bid and discloses only the winner and price.</p>
             </div>
           </div>
           <div className="step">
-            <span className="step-number">4</span>
+            <span className="step-number">5</span>
             <div>
               <h3>Settle</h3>
               <p>Losers reclaim their deposit, the winner reclaims their change, the auctioneer withdraws proceeds.</p>
