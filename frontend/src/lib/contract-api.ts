@@ -77,6 +77,16 @@ export type SealedBidAuctionDerivedState = {
 
 const randomBytes32 = (): Uint8Array => crypto.getRandomValues(new Uint8Array(32));
 
+/** A read-only preview of an auction's public state - no private state, no join required. */
+export type SealedBidAuctionPublicPreview = {
+  readonly itemDescription: string;
+  readonly reservePrice: bigint;
+  readonly requiredDeposit: bigint;
+  readonly bidderCount: bigint;
+  readonly open: boolean;
+  readonly resolved: boolean;
+};
+
 export interface DeployedSealedBidAuctionAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<SealedBidAuctionDerivedState>;
@@ -265,6 +275,29 @@ export class SealedBidAuctionAPI implements DeployedSealedBidAuctionAPI {
 
     logger?.trace({ contractJoined: { finalizedDeployTxData: deployed.deployTxData.public } });
     return new SealedBidAuctionAPI(deployed, providers, logger);
+  }
+
+  /**
+   * Reads an auction's public ledger state directly, without joining -
+   * no private state provider, no wallet write access needed. Used for
+   * showing a preview before committing to a full join.
+   */
+  static async queryPublicState(
+    providers: Pick<SealedBidAuctionProviders, 'publicDataProvider'>,
+    contractAddress: ContractAddress,
+  ): Promise<SealedBidAuctionPublicPreview | null> {
+    const contractState = await providers.publicDataProvider.queryContractState(contractAddress);
+    if (!contractState) return null;
+
+    const ledgerState = SealedBidAuction.ledger(contractState.data);
+    return {
+      itemDescription: ledgerState.itemDescription,
+      reservePrice: ledgerState.reservePrice,
+      requiredDeposit: ledgerState.requiredDeposit,
+      bidderCount: ledgerState.bidderCount,
+      open: ledgerState.open,
+      resolved: ledgerState.resolved,
+    };
   }
 
   private static async getPrivateState(providers: SealedBidAuctionProviders): Promise<SealedBidAuctionPrivateState> {

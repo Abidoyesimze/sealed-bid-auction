@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { LaceConnectionState } from '../hooks/useLaceWallet';
-import { SealedBidAuctionAPI } from '../lib/contract-api';
+import { SealedBidAuctionAPI, type SealedBidAuctionPublicPreview, type SealedBidAuctionProviders } from '../lib/contract-api';
 import { AuctionRoom } from '../AuctionRoom';
 
 type OutletContext = { wallet: LaceConnectionState; connect: () => void };
@@ -77,8 +77,75 @@ export function AppPage() {
         <h1>Join an auction</h1>
         <p>Pick a known auction below, or paste any auction's contract address.</p>
       </div>
-      <JoinAuction busy={busy} error={error} onJoin={join} />
+      <JoinAuction busy={busy} error={error} onJoin={join} providers={wallet.providers} />
     </div>
+  );
+}
+
+function StatusBadge({ preview }: { preview: SealedBidAuctionPublicPreview }) {
+  if (preview.resolved) return <span className="badge badge-resolved">Resolved</span>;
+  if (preview.open) return <span className="badge badge-open">Open</span>;
+  return <span className="badge badge-closed">Closed</span>;
+}
+
+function KnownAuctionCard({
+  label,
+  address,
+  providers,
+  busy,
+  onJoin,
+}: {
+  label: string;
+  address: string;
+  providers: SealedBidAuctionProviders;
+  busy: boolean;
+  onJoin: (address: string) => void;
+}) {
+  const [preview, setPreview] = useState<SealedBidAuctionPublicPreview | null | 'error'>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    SealedBidAuctionAPI.queryPublicState(providers, address)
+      .then((result) => {
+        if (!cancelled) setPreview(result);
+      })
+      .catch(() => {
+        if (!cancelled) setPreview('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [providers, address]);
+
+  return (
+    <button
+      className="btn btn-secondary btn-block"
+      style={{ textAlign: 'left', height: 'auto', padding: 'var(--space-4)' }}
+      disabled={busy}
+      onClick={() => onJoin(address)}
+    >
+      <div className="row gap-3" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+        <span style={{ fontWeight: 650 }}>{label}</span>
+        {preview && preview !== 'error' && <StatusBadge preview={preview} />}
+      </div>
+      {preview === null && <p className="text-sm text-muted">Loading details…</p>}
+      {preview === 'error' && <p className="text-sm text-muted">Couldn't load details - click to try joining anyway.</p>}
+      {preview && preview !== 'error' && (
+        <>
+          <p className="text-sm" style={{ marginBottom: 'var(--space-2)' }}>
+            {preview.itemDescription}
+          </p>
+          <div className="row gap-4 text-sm text-muted">
+            <span>Reserve: {preview.reservePrice.toString()}</span>
+            <span>Deposit: {preview.requiredDeposit.toString()}</span>
+            <span>{preview.bidderCount.toString()} bidder(s)</span>
+          </div>
+        </>
+      )}
+      <div className="mono text-faint text-sm" style={{ marginTop: 'var(--space-2)' }}>
+        {address.slice(0, 14)}…
+      </div>
+    </button>
   );
 }
 
@@ -86,10 +153,12 @@ function JoinAuction({
   busy,
   error,
   onJoin,
+  providers,
 }: {
   busy: boolean;
   error: string | null;
   onJoin: (contractAddress: string) => void;
+  providers: SealedBidAuctionProviders;
 }) {
   const [contractAddress, setContractAddress] = useState('');
 
@@ -103,16 +172,14 @@ function JoinAuction({
           <div className="card-subtitle">A short, manually curated list - not every auction ever deployed.</div>
           <div className="stack gap-2">
             {KNOWN_AUCTIONS.map((auction) => (
-              <button
+              <KnownAuctionCard
                 key={auction.address}
-                className="btn btn-secondary btn-block"
-                style={{ justifyContent: 'space-between', textAlign: 'left' }}
-                disabled={busy}
-                onClick={() => onJoin(auction.address)}
-              >
-                <span>{auction.label}</span>
-                <span className="mono text-faint text-sm">{auction.address.slice(0, 10)}…</span>
-              </button>
+                label={auction.label}
+                address={auction.address}
+                providers={providers}
+                busy={busy}
+                onJoin={onJoin}
+              />
             ))}
           </div>
         </div>
