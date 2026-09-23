@@ -22,7 +22,7 @@ Who uses it: NFT marketplaces, real-estate/asset auctions, and procurement/RFP p
 
 ```
 contract/   Compact contract, compiled circuits (managed/), and unit tests (vitest)
-frontend/   React/Vite web UI: wallet connect, deploy/join, bid, resolve, settle
+frontend/   React/Vite web UI: wallet connect, join by contract address, bid, resolve, settle
 ```
 
 ## Current status
@@ -66,13 +66,13 @@ What it does *not* guarantee: the auctioneer's own device sees every bid's plain
 ### Frontend (`frontend/src`)
 
 - `lib/wallet-bridge.ts`, `lib/providers.ts`, `hooks/useLaceWallet.ts`: connects to an injected Lace wallet and builds the full Midnight provider bundle (indexer, private state, ZK config, proof delegation to the wallet). Modeled directly on the sibling ShadowPoll project's proven equivalent code.
-- `lib/contract-api.ts`: deploy/join a `SealedBidAuction` contract instance and call every circuit; derives a per-wallet view of auction state (is this identity the auctioneer? have they bid? did they win?).
+- `lib/contract-api.ts`: joins an already-deployed `SealedBidAuction` contract instance by address and calls every circuit; derives a per-wallet view of auction state (is this identity the auctioneer? have they bid? did they win?). Deployment itself is CLI-only (see below) — the frontend never deploys a contract, only interacts with one that already exists.
 - `lib/reveal.ts`: the encrypted bidder → auctioneer reveal hand-off described above.
-- `App.tsx` / `AuctionRoom.tsx`: connect wallet → deploy a new auction or join one by address → place a sealed bid → (auctioneer) close, generate a resolution key, gather encrypted reveals, resolve → reclaim/claim/withdraw.
+- `App.tsx` / `AuctionRoom.tsx`: connect wallet → join an auction by contract address (a shortcut button prefills the live demo address) → place a sealed bid → (auctioneer) close, generate a resolution key, gather encrypted reveals, resolve → reclaim/claim/withdraw.
 
 **What's verified end to end:** the CLI deploy path (`cli/`) has been run successfully against both a local `midnight-local-dev` stack and the **public Preview network** (see the live contract address at the top of this README) - real node + indexer + proof server, not the vitest simulator - with the ledger state read back afterward matching exactly what the contract should produce on a fresh deploy. That's a genuine proof the full pipeline (Compact contract → compiled circuits → TypeScript bindings → wallet/provider wiring) works against a real public chain, not just local unit tests.
 
-**What's not yet verified:** the browser frontend's wallet-connect → deploy → bid → resolve flow has not been exercised against a real Lace wallet (no Lace extension available in the environment this was built in). What has been verified there: it typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, and the app renders and fails gracefully with no wallet installed (checked via headless Chrome + DevTools Protocol - zero console errors on load, "No Midnight wallet extension found" rather than a crash on connect).
+**What's not yet verified:** the browser frontend's wallet-connect → join → bid → resolve flow has not been exercised against a real Lace wallet (no Lace extension available in the environment this was built in). What has been verified there: it typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, and the app renders and fails gracefully with no wallet installed (checked via headless Chrome + DevTools Protocol - zero console errors on load, "No Midnight wallet extension found" rather than a crash on connect).
 
 ## Prerequisites
 
@@ -94,9 +94,9 @@ npm run dev --workspace=frontend       # http://localhost:5173
 
 Note: a fresh install also resolves `@swc/core` to a version that crashes `vite-plugin-top-level-await` during `vite build` ("missing field `type`"). The root `package.json`'s `overrides` field pins a known-working `@swc/core` version - if you ever remove that override, you'll likely hit the same crash.
 
-## Deploying to Preview via the browser (recommended)
+## Using the frontend against the live auction
 
-The direct-SDK CLI path below (`cli/`) hits a real, currently-unresolved reliability wall against the public testnets - confirmed not just here but across a sibling project's own deploy logs (0 successful Preprod deploys in 12 attempts over a month, same code; Preview only 2/16). A real Lace wallet in the browser uses a more mature sync/caching path and doesn't share that specific failure mode, so it's the reliable way to get a live deployment. Preprod itself never completed a deploy across many attempts either way, so **Preview** is the target used here:
+The frontend only *uses* a contract that's already been deployed (via the CLI, below) - it has no deploy capability of its own. To try it against the live Preview deployment:
 
 ```bash
 git clone https://github.com/Abidoyesimze/sealed-bid-auction.git
@@ -111,7 +111,7 @@ npm run dev --workspace=frontend               # http://localhost:5173
 Then:
 1. Install the [Lace wallet](https://www.lace.io/) extension, switch its network to **Preview** in its settings.
 2. Fund it from the Preview faucet: https://midnight-tmnight-preview.nethermind.dev/ (captcha-gated - manual, not automatable).
-3. Open the app, click **Connect wallet**, then **List a new item** to deploy. The deployed contract address appears once the transaction confirms - that's your live demo link/address for the submission.
+3. Open the app, click **Connect wallet**, then **Use the live demo auction** (or paste any other deployed contract's address) to join it.
 
 ## Deploying (`cli/`)
 
@@ -140,11 +140,11 @@ npm run preview-direct    # or: npm run preprod-direct
 
 The first run with no `WALLET_SEED`/`WALLET_MNEMONIC` generates a fresh wallet, logs its address, and waits for it to be funded - the public testnet faucets are captcha-gated, so fund that address manually at the network's faucet UI (e.g. `https://midnight-tmnight-preview.nethermind.dev/`), then either let the same run keep waiting or re-run with `WALLET_SEED=<the logged seed>` once funded. `ITEM_DESCRIPTION`, `RESERVE_PRICE`, and `REQUIRED_DEPOSIT` env vars override the deployed listing's defaults.
 
-**Known reliability issue (Preprod especially):** this direct-SDK path works reliably against a local network but is currently unreliable against the public testnets. Confirmed causes hit while building this: (1) the underlying wallet-sdk's sync-wait loop leaks memory badly enough to OOM a multi-GB Node heap during a long wait; (2) a fresh wallet with no known "birthday" has to walk its full DUST event history from genesis before showing a balance, which the SDK gives no way to persist or resume across process restarts - documented elsewhere as ~78 minutes on Preprod; (3) `submitAndWatchExtrinsic` intermittently loses its WebSocket connection mid-submission. None of this is specific to one machine - a sibling project using this exact ported code logged 0 successful Preprod deploys across 12 attempts over a month, and gave up on Preprod in favor of Preview for that reason. Use the browser+Lace path above instead if you hit this.
+**Known reliability issue (Preprod especially):** this direct-SDK path works reliably against a local network but is currently unreliable against the public testnets. Confirmed causes hit while building this: (1) the underlying wallet-sdk's sync-wait loop leaks memory badly enough to OOM a multi-GB Node heap during a long wait; (2) a fresh wallet with no known "birthday" has to walk its full DUST event history from genesis before showing a balance, which the SDK gives no way to persist or resume across process restarts - documented elsewhere as ~78 minutes on Preprod; (3) `submitAndWatchExtrinsic` intermittently loses its WebSocket connection mid-submission. None of this is specific to one machine - a sibling project using this exact ported code logged 0 successful Preprod deploys across 12 attempts over a month, and gave up on Preprod in favor of Preview for that reason. Preview eventually succeeds; it just needs patience (see the live contract address at the top of this README) - retry loops and/or a long uninterrupted run are the practical workaround.
 
 ## Open items
 
 1. **Raising or removing the 8-bidder cap** — bigger fixed width, or a batched/recursive design, if a real auction needs more bidders.
-2. **Full lifecycle verification against a real Lace wallet in the browser** - deployment is proven (see the live contract address above, deployed via the CLI); bidding from multiple identities, reveal, resolve, and settle have not yet been exercised against a real wallet.
+2. **Full lifecycle verification against a real Lace wallet in the browser** - deployment is proven (see the live contract address above, deployed via the CLI); joining, bidding from multiple identities, reveal, resolve, and settle through the frontend have not yet been exercised against a real wallet.
 3. **Reveal hand-off transport UX** - `reveal.ts` only handles the encryption; bidders and the auctioneer currently copy/paste JSON blobs by hand. A real deployment would want a small relay (or QR codes, or email) instead.
 4. **Preprod support once its tooling stabilizes** - the contract and deploy code already support it (`npm run preprod-direct`); only the public network's current reliability is the blocker.

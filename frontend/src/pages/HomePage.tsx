@@ -72,8 +72,8 @@ export function HomePage() {
           <div className="step">
             <span className="step-number">1</span>
             <div>
-              <h3>List an item</h3>
-              <p>Set a public reserve price and the deposit every bidder must lock to participate.</p>
+              <h3>Deploy an auction</h3>
+              <p>The auctioneer deploys the contract with a public reserve price and the deposit every bidder must lock.</p>
             </div>
           </div>
           <div className="step">
@@ -104,7 +104,7 @@ export function HomePage() {
         <div className="card" style={{ textAlign: 'center', padding: 'var(--space-7)' }}>
           <h2 style={{ marginBottom: 'var(--space-3)' }}>Ready to run a private auction?</h2>
           <p style={{ maxWidth: 480, margin: '0 auto var(--space-5)' }}>
-            Connect a Lace wallet and list your first item, or join an auction someone else has already deployed.
+            Connect a Lace wallet and join an auction by its contract address — including the live demo deployment.
           </p>
           <Link to="/app" className="btn btn-primary">
             Launch app
