@@ -7,9 +7,9 @@ export function HomePage() {
         <span className="hero-eyebrow">🌙 Built on Midnight</span>
         <h1>Sealed bids. Verifiable results. Nothing else revealed.</h1>
         <p className="hero-sub">
-          List an item with a reserve price. Bidders submit bids that stay completely private while the auction is
-          open — not even the auctioneer can see one. When it closes, the contract proves who bid highest and
-          reveals only the winner and the winning price. Every losing bid stays private, permanently.
+          An item is listed with a public reserve price. Bidders submit bids that stay completely private while the
+          auction is open — not even the auctioneer can see one. When it closes, the contract proves who bid
+          highest and reveals only the winner and the winning price. Every losing bid stays private, permanently.
         </p>
         <div className="hero-actions">
           <Link to="/app" className="btn btn-primary">
@@ -72,8 +72,8 @@ export function HomePage() {
           <div className="step">
             <span className="step-number">1</span>
             <div>
-              <h3>Deploy an auction</h3>
-              <p>The auctioneer deploys the contract with a public reserve price and the deposit every bidder must lock.</p>
+              <h3>Join an auction</h3>
+              <p>Connect your wallet and open an existing auction by its contract address — a public reserve price and the required deposit are set when it's deployed.</p>
             </div>
           </div>
           <div className="step">
