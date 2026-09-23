@@ -84,6 +84,14 @@ export function AuctionRoom({
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      <div className="card" style={{ padding: 'var(--space-4)' }}>
+        <p className="text-sm text-muted">
+          Testing this out? <a href="https://forms.gle/dVscjEc3WjV4eNuj6" target="_blank" rel="noreferrer">
+            Tell us what you thought
+          </a> — 2 minutes, and it directly shapes what we fix next.
+        </p>
+      </div>
+
       {state.open && !state.hasBid && !state.isAuctioneer && (
         <BidForm busy={busy} onSubmit={(amount) => run(() => api.placeBid(amount))} />
       )}

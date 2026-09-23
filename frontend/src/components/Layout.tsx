@@ -19,6 +19,9 @@ export function Layout() {
             <a href="https://docs.midnight.network" target="_blank" rel="noreferrer">
               Midnight Docs
             </a>
+            <a href="https://forms.gle/dVscjEc3WjV4eNuj6" target="_blank" rel="noreferrer">
+              Give feedback
+            </a>
           </div>
         </div>
       </footer>

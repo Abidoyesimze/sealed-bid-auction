@@ -19,8 +19,9 @@ A full-stack, privacy-preserving sealed-bid auction platform built on [Midnight]
 | **Demo video** | [Loom walkthrough](https://www.loom.com/share/3d07f8b3157c4002935ca48342463bd9) |
 | **Follow along** | [@SealedBidMN on X](https://x.com/SealedBidMN) |
 | **CI** | [GitHub Actions](https://github.com/Abidoyesimze/sealed-bid-auction/actions/workflows/ci.yml) |
+| **Give feedback** | [Tester feedback form](https://forms.gle/dVscjEc3WjV4eNuj6) |
 
-> **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-a-new-auction-cli) below for the full writeup. Preview is the stable, working target for now.
+> **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-a-new-auction-cli) below for the full writeup. Preview is the stable, working target for now - including for the program's Preprod-specific submission requirements, where the same substitution applies for the same reason.
 >
 > **On deploy timing:** getting the live deployment above through took roughly 6 hours of a single CLI process waiting through the wallet's full three-lane (shielded/unshielded/DUST) sync before it would build a valid spend proof — the funds and DUST were confirmed present on-chain almost immediately, the wait was entirely this client-side sync catching up. This matches the exact flow in Midnight's own official CLI tutorial (no shortcut skipped), so it's a current characteristic of the public Preview network/tooling, not a bug in this project.
 
@@ -37,6 +38,7 @@ A full-stack, privacy-preserving sealed-bid auction platform built on [Midnight]
 - [Getting started](#getting-started)
 - [Using the app](#using-the-app)
 - [Deploying a new auction (`cli/`)](#deploying-a-new-auction-cli)
+- [Feedback loop](#feedback-loop)
 - [Open items](#open-items)
 
 ## What this is
@@ -186,6 +188,17 @@ npm run preview-direct    # or: npm run preprod-direct
 The first run with no `WALLET_SEED`/`WALLET_MNEMONIC` generates a fresh wallet, logs its address, and waits for it to be funded - the public testnet faucets are captcha-gated, so fund that address manually at the network's faucet UI (e.g. `https://midnight-tmnight-preview.nethermind.dev/`), then either let the same run keep waiting or re-run with `WALLET_SEED=<the logged seed>` once funded. `ITEM_DESCRIPTION`, `RESERVE_PRICE`, and `REQUIRED_DEPOSIT` env vars override the deployed listing's defaults.
 
 **Known reliability issue (Preprod especially):** this direct-SDK path works reliably against a local network but is currently unreliable against the public testnets. Confirmed causes hit while building this: (1) the underlying wallet-sdk's sync-wait loop leaks memory badly enough to OOM a multi-GB Node heap during a long wait; (2) a fresh wallet with no known "birthday" has to walk its full DUST event history from genesis before showing a balance, which the SDK gives no way to persist or resume across process restarts - documented elsewhere as ~78 minutes on Preprod; (3) `submitAndWatchExtrinsic` intermittently loses its WebSocket connection mid-submission. None of this is specific to one machine - a sibling project using this exact ported code logged 0 successful Preprod deploys across 12 attempts over a month, and gave up on Preprod in favor of Preview for that reason. Preview eventually succeeds; it just needs patience (see the live contract address above) - retry loops and/or a long uninterrupted run are the practical workaround.
+
+## Feedback loop
+
+Testers give feedback through a short [Google Form](https://forms.gle/dVscjEc3WjV4eNuj6), linked from the app's footer and directly inside the auction room after connecting a wallet. It asks for: the tester's wallet address, a transaction hash/link proving they actually interacted with the contract (not just a claimed address), which flows they tried, an ease-of-use rating, and free-text on what confused them or broke.
+
+How responses turn into changes:
+1. Each response is triaged against the app - reproduced if it describes a bug, or weighed against existing [Open items](#open-items) if it's a design/UX suggestion.
+2. Confirmed bugs get fixed in a commit that references what was reported, same as any other fix in this repo's history.
+3. The list of tester wallet addresses (each backed by their submitted transaction proof) is published in [`docs/testers.md`](docs/testers.md) as responses come in.
+
+This loop was already running before the form existed: every UI fix in this repo from `c5def58` onward (the "use the live demo" button not actually joining, known-auction cards overflowing off-screen, the join/create forms sitting left-aligned instead of centered) came from the same pattern - someone actually using the app with a real wallet, screenshotting what looked wrong, and that becoming a commit within the hour. The form formalizes that same loop for testers who aren't in direct conversation with the person building it.
 
 ## Open items
 
