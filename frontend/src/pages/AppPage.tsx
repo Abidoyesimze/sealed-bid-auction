@@ -73,11 +73,13 @@ export function AppPage() {
 
   return (
     <div className="page container">
-      <div className="page-header">
-        <h1>Join an auction</h1>
-        <p>Pick a known auction below, or paste any auction's contract address.</p>
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+        <div className="page-header" style={{ textAlign: 'center' }}>
+          <h1>Join an auction</h1>
+          <p>Pick a known auction below, or paste any auction's contract address.</p>
+        </div>
+        <JoinAuction busy={busy} error={error} onJoin={join} providers={wallet.providers} />
       </div>
-      <JoinAuction busy={busy} error={error} onJoin={join} providers={wallet.providers} />
     </div>
   );
 }
@@ -158,7 +160,7 @@ function JoinAuction({
   const [contractAddress, setContractAddress] = useState('');
 
   return (
-    <div className="stack gap-4" style={{ maxWidth: 480 }}>
+    <div className="stack gap-4">
       {error && <div className="alert alert-error">{error}</div>}
 
       {KNOWN_AUCTIONS.length > 0 && (

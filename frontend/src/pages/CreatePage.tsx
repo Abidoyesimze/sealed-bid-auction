@@ -55,31 +55,33 @@ export function CreatePage() {
 
   return (
     <div className="page container">
-      <div className="page-header">
-        <h1>Create an auction</h1>
-        <p>Deploy a new sealed-bid auction contract. You'll be the auctioneer.</p>
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+        <div className="page-header" style={{ textAlign: 'center' }}>
+          <h1>Create an auction</h1>
+          <p>Deploy a new sealed-bid auction contract. You'll be the auctioneer.</p>
+        </div>
+        <DeployForm
+          busy={busy}
+          error={error}
+          onDeploy={async (itemDescription, reservePrice, requiredDeposit) => {
+            setBusy(true);
+            setError(null);
+            try {
+              const deployed = await SealedBidAuctionAPI.deploy(
+                wallet.providers,
+                itemDescription,
+                reservePrice,
+                requiredDeposit,
+              );
+              setApi(deployed);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : String(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
       </div>
-      <DeployForm
-        busy={busy}
-        error={error}
-        onDeploy={async (itemDescription, reservePrice, requiredDeposit) => {
-          setBusy(true);
-          setError(null);
-          try {
-            const deployed = await SealedBidAuctionAPI.deploy(
-              wallet.providers,
-              itemDescription,
-              reservePrice,
-              requiredDeposit,
-            );
-            setApi(deployed);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
     </div>
   );
 }
@@ -108,7 +110,7 @@ function DeployForm({
   };
 
   return (
-    <div className="card" style={{ maxWidth: 480 }}>
+    <div className="card">
       <div className="card-title">Auction details</div>
       <div className="card-subtitle">
         The item description and reserve price are public. The required deposit is the fixed amount every bidder
