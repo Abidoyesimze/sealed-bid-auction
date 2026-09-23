@@ -6,11 +6,16 @@ import { AuctionRoom } from '../AuctionRoom';
 
 type OutletContext = { wallet: LaceConnectionState; connect: () => void };
 
-// The live auction deployed via cli/direct-deploy.ts - see README. Contracts
-// are deployed with the CLI (proven reliable against a real network); this
-// app is for interacting with one that already exists, not deploying new
-// ones.
-const LIVE_CONTRACT_ADDRESS = 'ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f';
+// There's no on-chain registry/indexer for "every deployed SealedBidAuction"
+// - Midnight's indexer looks up one contract by address, it doesn't list
+// instances of a compiled contract. So this is a manually curated list of
+// auctions we know about, not an automatic discovery feed.
+const KNOWN_AUCTIONS = [
+  {
+    label: 'Live demo auction (Preview)',
+    address: 'ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f',
+  },
+];
 
 export function AppPage() {
   const { wallet, connect } = useOutletContext<OutletContext>();
@@ -53,28 +58,26 @@ export function AppPage() {
     );
   }
 
+  const join = async (contractAddress: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const joined = await SealedBidAuctionAPI.join(wallet.providers, contractAddress);
+      setApi(joined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="page container">
       <div className="page-header">
         <h1>Join an auction</h1>
-        <p>Connect to a sealed-bid auction contract by its address.</p>
+        <p>Pick a known auction below, or paste any auction's contract address.</p>
       </div>
-      <JoinAuction
-        busy={busy}
-        error={error}
-        onJoin={async (contractAddress) => {
-          setBusy(true);
-          setError(null);
-          try {
-            const joined = await SealedBidAuctionAPI.join(wallet.providers, contractAddress);
-            setApi(joined);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
+      <JoinAuction busy={busy} error={error} onJoin={join} />
     </div>
   );
 }
@@ -91,12 +94,33 @@ function JoinAuction({
   const [contractAddress, setContractAddress] = useState('');
 
   return (
-    <div className="stack gap-4">
+    <div className="stack gap-4" style={{ maxWidth: 480 }}>
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="card" style={{ maxWidth: 480 }}>
-        <div className="card-title">Contract address</div>
-        <div className="card-subtitle">Paste an auction's contract address, or use the live demo below.</div>
+      {KNOWN_AUCTIONS.length > 0 && (
+        <div className="card">
+          <div className="card-title">Known auctions</div>
+          <div className="card-subtitle">A short, manually curated list - not every auction ever deployed.</div>
+          <div className="stack gap-2">
+            {KNOWN_AUCTIONS.map((auction) => (
+              <button
+                key={auction.address}
+                className="btn btn-secondary btn-block"
+                style={{ justifyContent: 'space-between', textAlign: 'left' }}
+                disabled={busy}
+                onClick={() => onJoin(auction.address)}
+              >
+                <span>{auction.label}</span>
+                <span className="mono text-faint text-sm">{auction.address.slice(0, 10)}…</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="card-title">Join by address</div>
+        <div className="card-subtitle">Paste any other auction's contract address.</div>
 
         <div className="field">
           <label htmlFor="contract-address">Contract address</label>
@@ -115,15 +139,6 @@ function JoinAuction({
           onClick={() => onJoin(contractAddress)}
         >
           {busy ? 'Joining…' : 'Join auction'}
-        </button>
-
-        <button
-          className="btn btn-ghost btn-block"
-          style={{ marginTop: 'var(--space-2)' }}
-          disabled={busy}
-          onClick={() => setContractAddress(LIVE_CONTRACT_ADDRESS)}
-        >
-          Use the live demo auction
         </button>
       </div>
     </div>
