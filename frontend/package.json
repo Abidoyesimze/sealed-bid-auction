@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-managed.mjs",
-    "prebuild": "node scripts/copy-managed.mjs",
+    "predev": "npm --prefix ../contract run build && node scripts/copy-managed.mjs",
+    "prebuild": "npm --prefix ../contract run build && node scripts/copy-managed.mjs",
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
