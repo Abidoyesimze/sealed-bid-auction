@@ -4,11 +4,13 @@
 
 A Midnight contract where anyone can list an item with a reserve price, and anyone can submit a bid that stays completely private while the auction is open — no one, including the auctioneer, can see any bid amount until the auction closes. At close, the contract proves who submitted the highest bid and reveals only that: the winner's identity and the winning price. Every losing bid's amount is never written to ledger state or disclosed in any transaction — it never appears in chain history.
 
-**Live Preview demo:** _pending first deployment — see [Deploying to Preview via the browser](#deploying-to-preview-via-the-browser-recommended)_
-**Contract address:** _pending_
+**Live network:** Preview
+**Contract address:** [`ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f`](https://indexer.preview.midnight.network/api/v4/graphql)
 **Follow along / product profile:** _pending_ — built in public, link goes here once the X profile is live.
 
 > **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-cli) below for the full writeup. Preview is the stable, working target for now.
+>
+> **On deploy timing:** getting this deployment through took roughly 6 hours of a single CLI process waiting through the wallet's full three-lane (shielded/unshielded/DUST) sync before it would build a valid spend proof - the funds and DUST were confirmed present on-chain almost immediately, the wait was entirely this client-side sync catching up. This matches the exact flow in Midnight's own official CLI tutorial (no shortcut skipped), so it's a current characteristic of the public Preview network/tooling, not a bug in this project.
 
 ## Why this needs Midnight
 
@@ -68,7 +70,7 @@ What it does *not* guarantee: the auctioneer's own device sees every bid's plain
 - `lib/reveal.ts`: the encrypted bidder → auctioneer reveal hand-off described above.
 - `App.tsx` / `AuctionRoom.tsx`: connect wallet → deploy a new auction or join one by address → place a sealed bid → (auctioneer) close, generate a resolution key, gather encrypted reveals, resolve → reclaim/claim/withdraw.
 
-**What's verified end to end:** the CLI deploy path (`cli/`) has been run against a real, live Midnight network - a local `midnight-local-dev` stack (real node + indexer + proof server, not the vitest simulator) - and successfully deployed this contract, with the ledger state read back afterward matching exactly what the contract should produce on a fresh deploy. That's a genuine proof the full pipeline (Compact contract → compiled circuits → TypeScript bindings → wallet/provider wiring) works against a real chain, not just local unit tests.
+**What's verified end to end:** the CLI deploy path (`cli/`) has been run successfully against both a local `midnight-local-dev` stack and the **public Preview network** (see the live contract address at the top of this README) - real node + indexer + proof server, not the vitest simulator - with the ledger state read back afterward matching exactly what the contract should produce on a fresh deploy. That's a genuine proof the full pipeline (Compact contract → compiled circuits → TypeScript bindings → wallet/provider wiring) works against a real public chain, not just local unit tests.
 
 **What's not yet verified:** the browser frontend's wallet-connect → deploy → bid → resolve flow has not been exercised against a real Lace wallet (no Lace extension available in the environment this was built in). What has been verified there: it typechecks against the real `@midnight-ntwrk/midnight-js-*` types, production-builds cleanly, and the app renders and fails gracefully with no wallet installed (checked via headless Chrome + DevTools Protocol - zero console errors on load, "No Midnight wallet extension found" rather than a crash on connect).
 
@@ -143,5 +145,6 @@ The first run with no `WALLET_SEED`/`WALLET_MNEMONIC` generates a fresh wallet, 
 ## Open items
 
 1. **Raising or removing the 8-bidder cap** — bigger fixed width, or a batched/recursive design, if a real auction needs more bidders.
-2. **Live end-to-end verification** against a real Lace wallet and a real Midnight network (Preview/Preprod/mainnet) - deploy, bid from multiple identities, reveal, resolve, settle.
+2. **Full lifecycle verification against a real Lace wallet in the browser** - deployment is proven (see the live contract address above, deployed via the CLI); bidding from multiple identities, reveal, resolve, and settle have not yet been exercised against a real wallet.
 3. **Reveal hand-off transport UX** - `reveal.ts` only handles the encryption; bidders and the auctioneer currently copy/paste JSON blobs by hand. A real deployment would want a small relay (or QR codes, or email) instead.
+4. **Preprod support once its tooling stabilizes** - the contract and deploy code already support it (`npm run preprod-direct`); only the public network's current reliability is the blocker.
