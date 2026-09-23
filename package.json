@@ -13,8 +13,7 @@
   ],
   "devDependencies": {
     "@types/node": "^25.3.0",
-    "typescript": "^5.9.3",
-    "vitest": "4.1.10"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "@swc/core": "1.15.47",

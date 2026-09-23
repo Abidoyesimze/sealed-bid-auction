@@ -31,7 +31,8 @@ jobs:
         run: compact update 0.31.1
 
       # Known npm/arborist bug on a fresh install (no lockfile-free CI cache
-      # hit) around vitest's optional peer deps - see README "Setup".
+      # hit) around optional peer deps - see README "Setup". Also pinned via
+      # the root .npmrc, so this flag is now belt-and-suspenders.
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
