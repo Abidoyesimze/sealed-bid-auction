@@ -8,6 +8,7 @@ A Midnight contract where anyone can list an item with a reserve price, and anyo
 **Contract address:** [`ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f`](https://indexer.preview.midnight.network/api/v4/graphql)
 **Live app:** [sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/) — connect a Preview-network Lace wallet, then use the live demo auction shortcut to join the contract above.
 **Follow along / product profile:** [@SealedBidMN](https://x.com/SealedBidMN)
+**Demo video:** [Loom walkthrough](https://www.loom.com/share/3d07f8b3157c4002935ca48342463bd9)
 
 > **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-cli) below for the full writeup. Preview is the stable, working target for now.
 >
