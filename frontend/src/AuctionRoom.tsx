@@ -96,6 +96,16 @@ export function AuctionRoom({
         <BidForm busy={busy} onSubmit={(amount) => run(() => api.placeBid(amount))} />
       )}
 
+      {state.open && state.hasBid && !state.isAuctioneer && (
+        <div className="card">
+          <div className="card-title">Bid sealed</div>
+          <p className="text-sm text-muted">
+            Your bid is locked in. Waiting for the auctioneer to close the auction - once they do, you'll be able
+            to reveal your bid to them here.
+          </p>
+        </div>
+      )}
+
       {state.open && state.isAuctioneer && (
         <div className="card">
           <div className="card-title">Auctioneer controls</div>
@@ -106,7 +116,7 @@ export function AuctionRoom({
         </div>
       )}
 
-      {!state.open && !state.resolved && !state.hasBid && !state.isAuctioneer && <BidderRevealPanel api={api} />}
+      {!state.open && !state.resolved && state.hasBid && !state.isAuctioneer && <BidderRevealPanel api={api} />}
 
       {!state.open && !state.resolved && state.isAuctioneer && (
         <AuctioneerResolvePanel
@@ -142,7 +152,7 @@ export function AuctionRoom({
                 Reclaim my deposit
               </button>
             )}
-            {state.isAuctioneer && !state.proceedsWithdrawn && (
+            {state.isAuctioneer && !state.proceedsWithdrawn && state.winningPrice > 0n && (
               <button
                 className="btn btn-secondary"
                 disabled={busy}
