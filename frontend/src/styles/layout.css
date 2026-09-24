@@ -26,14 +26,9 @@
   flex-shrink: 0;
 }
 .brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), #4c3a94);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
 }
 .nav-links {
   display: flex;

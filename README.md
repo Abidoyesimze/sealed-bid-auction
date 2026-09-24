@@ -15,13 +15,15 @@ A full-stack, privacy-preserving sealed-bid auction platform built on [Midnight]
 |---|---|
 | **Live app** | [sealed-bid-auction-frontend-chi.vercel.app](https://sealed-bid-auction-frontend-chi.vercel.app/) |
 | **Live network** | Preview |
-| **Contract address** | [`ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f`](https://indexer.preview.midnight.network/api/v4/graphql) |
+| **Contract address** | `ced650ce3235c82e03d7a112e6b6d40647295c3d32ffdf82df649be3e044281f` |
 | **Demo video** | [Loom walkthrough](https://www.loom.com/share/3d07f8b3157c4002935ca48342463bd9) |
 | **Follow along** | [@SealedBidMN on X](https://x.com/SealedBidMN) |
 | **CI** | [GitHub Actions](https://github.com/Abidoyesimze/sealed-bid-auction/actions/workflows/ci.yml) |
 | **Give feedback** | [Tester feedback form](https://forms.gle/dVscjEc3WjV4eNuj6) |
 
 > **Why Preview, not Preprod:** we tried Preprod first, since it tracks mainnet most closely. Across many attempts (here and independently, in a sibling project using this exact deploy code) it never completed a deploy — a real, currently-unresolved reliability issue in the public Preprod tooling, not something in this codebase. See [Known reliability issue](#deploying-a-new-auction-cli) below for the full writeup. Preview is the stable, working target for now - including for the program's Preprod-specific submission requirements, where the same substitution applies for the same reason.
+>
+> **To verify the contract address above is real and live**, without trusting this README: Midnight's Preview indexer is a GraphQL API, not a browsable block explorer, so there's no human-readable page to link to for it directly. The reliable way to check is to open the [live app](https://sealed-bid-auction-frontend-chi.vercel.app/) → **Launch App** → **Use the live demo auction** - that queries this exact address's public state from the real Preview indexer, live, in front of you (item description, reserve price, deposit, bidder count).
 >
 > **On deploy timing:** getting the live deployment above through took roughly 6 hours of a single CLI process waiting through the wallet's full three-lane (shielded/unshielded/DUST) sync before it would build a valid spend proof — the funds and DUST were confirmed present on-chain almost immediately, the wait was entirely this client-side sync catching up. This matches the exact flow in Midnight's own official CLI tutorial (no shortcut skipped), so it's a current characteristic of the public Preview network/tooling, not a bug in this project.
 

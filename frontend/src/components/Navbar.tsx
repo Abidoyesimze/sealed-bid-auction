@@ -8,7 +8,7 @@ export function Navbar({ wallet, onConnect }: { wallet: LaceConnectionState; onC
     <header className="navbar">
       <div className="container navbar-inner">
         <NavLink to="/" className="brand">
-          <span className="brand-mark">🌙</span>
+          <img src="/favicon.svg" alt="" className="brand-mark" />
           <span className="brand-text-full">Sealed-Bid Auction</span>
         </NavLink>
 

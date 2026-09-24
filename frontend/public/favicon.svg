@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="moonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c9b8ff"/>
+      <stop offset="100%" stop-color="#8b6cf5"/>
+    </linearGradient>
+  </defs>
+  <mask id="crescentMask">
+    <rect x="0" y="0" width="400" height="400" fill="white"/>
+    <circle cx="242" cy="146" r="94" fill="black"/>
+  </mask>
+  <circle cx="200" cy="176" r="104" fill="url(#moonGrad)" mask="url(#crescentMask)"/>
+  <g transform="translate(240,254)">
+    <circle cx="0" cy="0" r="52" fill="#08080d" stroke="url(#moonGrad)" stroke-width="5"/>
+    <rect x="-19" y="-3" width="38" height="30" rx="7" fill="#f4f4f8"/>
+    <path d="M -11 -3 V -16 a11 11 0 0 1 22 0 V -3" fill="none" stroke="#f4f4f8" stroke-width="6.5" stroke-linecap="round"/>
+    <circle cx="0" cy="10" r="4.5" fill="#08080d"/>
+  </g>
+</svg>
