@@ -65,12 +65,49 @@
   flex-shrink: 0;
 }
 
+.nav-toggle {
+  display: none;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.nav-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
 @media (max-width: 640px) {
   .nav-links {
     display: none;
   }
   .brand-text-full {
     display: none;
+  }
+  .nav-toggle {
+    display: flex;
+  }
+  .nav-links.nav-links-mobile-open {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    padding: var(--space-3) var(--space-4);
+    background: #0c0c14;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-links.nav-links-mobile-open .nav-link {
+    padding: 12px 14px;
   }
 }
 .wallet-pill-dot {
@@ -248,8 +285,15 @@
 }
 .connect-prompt {
   max-width: 420px;
-  margin: var(--space-8) auto;
+  margin: 0 auto;
   text-align: center;
+  /* fills .page's own reserved height (100vh - navbar) minus .page's own
+     top/bottom padding, so this centers within the first viewport instead
+     of leaving a large dead gap below a top-anchored card */
+  min-height: calc(100vh - 64px - var(--space-6) - var(--space-8));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .connect-prompt h1 {
   font-size: clamp(1.5rem, 5vw, 1.75rem);
