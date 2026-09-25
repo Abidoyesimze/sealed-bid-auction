@@ -3,10 +3,12 @@ import { Link, useOutletContext } from 'react-router-dom';
 import type { LaceConnectionState } from '../hooks/useLaceWallet';
 import { SealedBidAuctionAPI } from '../lib/contract-api';
 import { AuctionRoom } from '../AuctionRoom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type OutletContext = { wallet: LaceConnectionState; connect: () => void };
 
 export function CreatePage() {
+  useDocumentTitle('Create an auction');
   const { wallet, connect } = useOutletContext<OutletContext>();
   const [api, setApi] = useState<SealedBidAuctionAPI | null>(null);
   const [error, setError] = useState<string | null>(null);

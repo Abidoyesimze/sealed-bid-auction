@@ -75,7 +75,7 @@ export function AuctionRoom({
         </div>
 
         {(state.isAuctioneer || state.hasBid) && (
-          <div className="row gap-2" style={{ marginTop: 'var(--space-4)' }}>
+          <div className="row gap-2" style={{ marginTop: 'var(--space-4)', flexWrap: 'wrap' }}>
             {state.isAuctioneer && <span className="badge badge-neutral">You're the auctioneer</span>}
             {state.hasBid && <span className="badge badge-neutral">You've placed a bid</span>}
           </div>
@@ -364,7 +364,7 @@ function AuctioneerResolvePanel({
               placeholder="Encrypted reveal (JSON)"
             />
           </div>
-          <div className="row gap-2">
+          <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={addReveal} disabled={!pasted}>
               Add reveal
             </button>

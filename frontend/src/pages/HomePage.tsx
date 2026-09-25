@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function HomePage() {
+  useDocumentTitle();
   return (
     <main>
       <section className="hero container">
