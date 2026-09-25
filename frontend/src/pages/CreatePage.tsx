@@ -4,6 +4,7 @@ import type { LaceConnectionState } from '../hooks/useLaceWallet';
 import { SealedBidAuctionAPI } from '../lib/contract-api';
 import { AuctionRoom } from '../AuctionRoom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { Spinner } from '../components/Spinner';
 
 type OutletContext = { wallet: LaceConnectionState; connect: () => void };
 
@@ -158,7 +159,13 @@ function DeployForm({
       </div>
 
       <button className="btn btn-primary btn-block" disabled={busy || !canSubmit} onClick={submit}>
-        {busy ? 'Deploying…' : 'Deploy auction'}
+        {busy ? (
+          <>
+            <Spinner size={14} /> Deploying…
+          </>
+        ) : (
+          'Deploy auction'
+        )}
       </button>
       {busy && (
         <p className="text-sm text-muted" style={{ marginTop: 'var(--space-3)' }}>

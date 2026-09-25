@@ -4,6 +4,7 @@ import type { LaceConnectionState } from '../hooks/useLaceWallet';
 import { SealedBidAuctionAPI, type SealedBidAuctionPublicPreview, type SealedBidAuctionProviders } from '../lib/contract-api';
 import { AuctionRoom } from '../AuctionRoom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { Spinner } from '../components/Spinner';
 
 type OutletContext = { wallet: LaceConnectionState; connect: () => void };
 
@@ -127,7 +128,11 @@ function KnownAuctionCard({
         <span style={{ fontWeight: 650 }}>{label}</span>
         {preview && preview !== 'error' && <StatusBadge preview={preview} />}
       </div>
-      {preview === null && <p className="text-sm text-muted">Loading details…</p>}
+      {preview === null && (
+        <p className="text-sm text-muted row gap-2" style={{ display: 'inline-flex' }}>
+          <Spinner size={12} /> Loading details…
+        </p>
+      )}
       {preview === 'error' && <p className="text-sm text-muted">Couldn't load details - click to try joining anyway.</p>}
       {preview && preview !== 'error' && (
         <>
@@ -204,7 +209,13 @@ function JoinAuction({
           disabled={busy || !contractAddress}
           onClick={() => onJoin(contractAddress)}
         >
-          {busy ? 'Joining…' : 'Join auction'}
+          {busy ? (
+            <>
+              <Spinner size={14} /> Joining…
+            </>
+          ) : (
+            'Join auction'
+          )}
         </button>
       </div>
     </div>

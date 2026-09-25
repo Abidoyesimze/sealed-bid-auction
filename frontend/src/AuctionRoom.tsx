@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { pureCircuits, type RevealedBid } from '@sealed-bid-auction/contract';
 import type { SealedBidAuctionAPI, SealedBidAuctionDerivedState } from './lib/contract-api';
 import { generateAuctioneerKeyPair, encryptReveal, decryptReveal, type EncryptedReveal } from './lib/reveal';
+import { Spinner } from './components/Spinner';
 
 const bytesEqual = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
 const AUCTIONEER_KEY_PREFIX = 'sealed-bid-auction:auctioneer-key:';
@@ -10,6 +11,35 @@ function StatusBadge({ state }: { state: SealedBidAuctionDerivedState }) {
   if (state.resolved) return <span className="badge badge-resolved">Resolved</span>;
   if (state.open) return <span className="badge badge-open">Open</span>;
   return <span className="badge badge-closed">Closed</span>;
+}
+
+/** Always-visible contract address, so anyone can verify exactly what they're looking at - copyable, not just decorative. */
+function ContractAddressRow({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard API unavailable (e.g. insecure context) - nothing to fall back to */
+    }
+  };
+
+  return (
+    <button
+      className="contract-address-row"
+      onClick={copy}
+      title="Copy contract address"
+      aria-label="Copy contract address"
+    >
+      <span className="mono">
+        {address.slice(0, 10)}…{address.slice(-8)}
+      </span>
+      <span className="contract-address-copy">{copied ? 'Copied' : 'Copy'}</span>
+    </button>
+  );
 }
 
 export function AuctionRoom({
@@ -45,8 +75,11 @@ export function AuctionRoom({
 
   if (!state) {
     return (
-      <div className="card">
-        <p>Loading auction state…</p>
+      <div className="card" role="status" aria-live="polite">
+        <div className="row gap-2">
+          <Spinner />
+          <p>Loading auction state…</p>
+        </div>
       </div>
     );
   }
@@ -54,9 +87,13 @@ export function AuctionRoom({
   return (
     <div className="stack gap-4">
       <div className="card">
-        <div className="row gap-3" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+        <div className="row gap-3" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
           <h1 style={{ fontSize: '1.4rem' }}>{state.itemDescription}</h1>
           <StatusBadge state={state} />
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <ContractAddressRow address={api.deployedContractAddress} />
         </div>
 
         <div className="stat-grid">
@@ -193,7 +230,13 @@ function BidForm({ busy, onSubmit }: { busy: boolean; onSubmit: (amount: bigint)
             }
           }}
         >
-          {busy ? 'Sealing…' : 'Seal bid'}
+          {busy ? (
+            <>
+              <Spinner size={14} /> Sealing…
+            </>
+          ) : (
+            'Seal bid'
+          )}
         </button>
       </div>
     </div>
@@ -369,7 +412,13 @@ function AuctioneerResolvePanel({
               Add reveal
             </button>
             <button className="btn btn-primary" disabled={busy || gathered.length === 0} onClick={() => onResolve(gathered)}>
-              {busy ? 'Resolving…' : `Resolve with ${gathered.length} gathered reveal${gathered.length === 1 ? '' : 's'}`}
+              {busy ? (
+                <>
+                  <Spinner size={14} /> Resolving…
+                </>
+              ) : (
+                `Resolve with ${gathered.length} gathered reveal${gathered.length === 1 ? '' : 's'}`
+              )}
             </button>
           </div>
           {error && (

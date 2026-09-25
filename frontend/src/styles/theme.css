@@ -47,6 +47,17 @@
   box-sizing: border-box;
 }
 
+/* Keyboard-only focus ring - never shown for mouse/touch clicks, always
+   shown for Tab navigation, on every interactive element site-wide. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 html {
   color-scheme: dark;
 }
@@ -111,6 +122,21 @@ textarea::placeholder {
 
 code {
   font-family: var(--font-mono);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
 }
 
 .container {

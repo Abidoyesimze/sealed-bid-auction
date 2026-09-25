@@ -158,6 +158,35 @@
   border-color: var(--border-strong);
 }
 
+/* Contract address (verification trust signal) */
+.contract-address-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  color: var(--text-faint);
+  font-size: 13px;
+  transition: color 0.15s ease;
+}
+.contract-address-row:hover {
+  color: var(--text-muted);
+}
+.contract-address-row:hover .contract-address-copy {
+  opacity: 1;
+}
+.contract-address-copy {
+  opacity: 0;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-hover);
+  transition: opacity 0.15s ease;
+}
+
 /* Stat blocks */
 .stat-grid {
   display: grid;
